@@ -21,7 +21,9 @@ jobs:
       - name: Generate templ components
         run: go run github.com/a-h/templ/cmd/templ@v0.3.857 generate
       - name: Verify generated code is up to date
-        run: git diff --exit-code -- internal/server/ui || (echo "templ output is stale: run 'templ generate' and commit"; exit 1)
+        run: |
+          git diff --exit-code -- internal/server/ui \
+            || { echo "templ output is stale - run 'templ generate' and commit"; exit 1; }
       - name: Vet
         run: go vet ./...
       - name: Test
