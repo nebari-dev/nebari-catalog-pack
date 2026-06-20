@@ -37,6 +37,10 @@ type Config struct {
 
 	// DryRun renders and previews the Application manifest but never commits.
 	DryRun bool
+
+	// Demo serves a fixed, offline set of packs instead of querying the
+	// registry. Used for deterministic screenshots and quick local demos.
+	Demo bool
 }
 
 // RegistryConfig describes how to enumerate packs from an OCI/Quay registry.
@@ -112,6 +116,7 @@ func Load() (*Config, error) {
 		ListenAddr: env("CATALOG_LISTEN", ":8080"),
 		BasePath:   strings.TrimRight(env("CATALOG_BASE_PATH", ""), "/"),
 		DryRun:     boolEnv("CATALOG_DRY_RUN", false),
+		Demo:       boolEnv("CATALOG_DEMO", false),
 		Registry: RegistryConfig{
 			APIBase:     strings.TrimRight(env("CATALOG_REGISTRY_API", "https://quay.io/api/v1"), "/"),
 			OCIBase:     strings.TrimRight(env("CATALOG_REGISTRY_OCI", "https://quay.io/v2"), "/"),

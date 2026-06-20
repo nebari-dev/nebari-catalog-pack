@@ -11,19 +11,21 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-// packMetadata mirrors the pack-metadata.yaml convention consumed by
-// nebari-dev/software-pack-dashboard. All fields are optional; we read only the
-// subset that drives card presentation.
+// packMetadata mirrors the pack-metadata.yaml schema consumed by
+// nebari-dev/software-pack-dashboard. The schema is closed
+// (additionalProperties:false), so only these fields exist — note there is no
+// icon/category in the convention; cards fall back to initials/derived labels.
 type packMetadata struct {
 	Name        string `json:"name"`
 	DisplayName string `json:"display_name"`
 	Description string `json:"description"`
-	Icon        string `json:"icon"`
-	Category    string `json:"category"`
-	Level       string `json:"level"`
+	Level       string `json:"level"` // experimental|alpha|beta|ga
 	Owner       string `json:"owner"`
-	Homepage    string `json:"homepage"`
 	Deprecated  bool   `json:"deprecated"`
+	Links       struct {
+		Docs string `json:"docs"`
+		Demo string `json:"demo"`
+	} `json:"links"`
 }
 
 // Enricher fetches pack-metadata.yaml for packs to enrich card display.
@@ -97,17 +99,11 @@ func merge(p *Pack, md *packMetadata) {
 	if md.Description != "" {
 		p.Description = md.Description
 	}
-	if md.Icon != "" {
-		p.Icon = md.Icon
-	}
-	if md.Category != "" {
-		p.Category = md.Category
-	}
 	if md.Level != "" {
 		p.Level = md.Level
 	}
-	if md.Homepage != "" {
-		p.Homepage = md.Homepage
+	if md.Links.Docs != "" {
+		p.Homepage = md.Links.Docs
 	}
 	p.Deprecated = p.Deprecated || md.Deprecated
 }

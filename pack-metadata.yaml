@@ -1,12 +1,27 @@
-# Metadata consumed by the Nebari software-pack dashboard and by this catalog's
-# own discovery enrichment. Schema:
-# https://github.com/nebari-dev/software-pack-dashboard/blob/main/schema/pack-metadata.schema.json
+# pack-metadata.yaml
+#
+# Consumed by the Nebari pack dashboard
+# (https://github.com/nebari-dev/software-pack-dashboard), which fetches this
+# file once per hour to render the dashboard row for this pack.
+#
+# Schema:
+#   https://github.com/nebari-dev/software-pack-dashboard/blob/main/schema/pack-metadata.schema.json
+#
+# Validate locally before committing:
+#   pip install check-jsonschema
+#   check-jsonschema --schemafile <path-to>/pack-metadata.schema.json pack-metadata.yaml
+
 name: nebari-catalog-pack
 display_name: Pack Catalog
 description: Browse and install Nebari software packs from the cluster registry.
-icon: kubernetes
-category: Platform
 level: experimental
-owner: nebari-dev
-homepage: https://github.com/nebari-dev/nebari-catalog-pack
+owner: viniciusdc
 deprecated: false
+product_owner: null
+
+nebariapp_integration: full
+scope:
+  standalone-supported: yes
+
+links:
+  docs: https://github.com/nebari-dev/nebari-catalog-pack

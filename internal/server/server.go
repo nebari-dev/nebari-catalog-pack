@@ -62,6 +62,9 @@ func (s *Server) Handler() http.Handler {
 
 // packs returns the pack list, served from a short-lived cache.
 func (s *Server) packs(ctx context.Context) ([]registry.Pack, error) {
+	if s.cfg.Demo {
+		return registry.Fixtures(), nil
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.cached != nil && time.Since(s.cachedAt) < s.cacheTTL {

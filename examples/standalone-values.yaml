@@ -1,0 +1,25 @@
+# Helm values for a standalone install (no Nebari Operator).
+#   helm install nebari-catalog-pack nebari/nebari-catalog-pack -f standalone-values.yaml
+#
+# The NebariApp is left disabled, so you reach the UI via port-forward or your
+# own Ingress. Installs still work as long as gitops.repoURL + a credential are
+# set; ArgoCD nudging is optional.
+
+nebariapp:
+  enabled: false
+
+catalog:
+  dryRun: false
+  install:
+    domain: example.com
+    preferOCI: true
+  gitops:
+    repoURL: https://github.com/your-org/your-gitops.git
+    branch: main
+    path: ""            # apps/ at the repo root
+    tokenSecret:
+      name: gitops-token
+      key: token
+  argocd:
+    # Disable if the catalog can't reach an in-cluster ArgoCD; commits still land.
+    enabled: false

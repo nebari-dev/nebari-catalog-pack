@@ -1,0 +1,71 @@
+# Operator-managed install of nebari-catalog-pack as an ArgoCD Application.
+#
+# Drop this file into your GitOps repo's apps/ directory (the one the
+# app-of-apps watches). ArgoCD will sync the chart from quay.io/nebari/charts
+# and the nebari-operator will wire routing/TLS/auth from the NebariApp.
+#
+# Edit the catalog.gitops.* values to point at the SAME GitOps repo so the
+# catalog can install other packs into it.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: nebari-catalog-pack
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: nebari-packs
+    app.kubernetes.io/managed-by: nebari-infrastructure-core
+  annotations:
+    argocd.argoproj.io/sync-wave: "7"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: foundational
+  source:
+    repoURL: quay.io/nebari/charts
+    chart: nebari-catalog-pack
+    targetRevision: 0.1.0
+    helm:
+      releaseName: nebari-catalog-pack
+      values: |
+        nebariapp:
+          enabled: true
+          hostname: catalog.nebari.example.com
+          auth:
+            enabled: true
+            groups: ["admin"]
+          landingPage:
+            enabled: true
+            displayName: "Pack Catalog"
+            description: "Browse and install Nebari software packs"
+            category: "Platform"
+            priority: 50
+        catalog:
+          install:
+            domain: nebari.example.com
+          gitops:
+            repoURL: https://github.com/your-org/your-gitops.git
+            path: clusters/your-cluster
+            tokenSecret:
+              name: gitops-token
+              key: token
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: nebari-system
+  syncPolicy:
+    managedNamespaceMetadata:
+      labels:
+        nebari.dev/managed: "true"
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - SkipDryRunOnMissingResource=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

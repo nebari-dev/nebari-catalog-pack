@@ -1,0 +1,62 @@
+name: Screenshots
+
+# Regenerates the UI screenshots in docs/screenshots/ and commits them back to
+# main, so the README showcase always reflects the current UI. The server runs
+# in demo + dry-run mode (deterministic offline data, no cluster, no git writes),
+# captured by the Playwright harness in test/e2e/.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "internal/server/**"
+      - "internal/registry/fixtures.go"
+      - "test/e2e/**"
+      - ".github/workflows/screenshots.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture-and-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install e2e deps
+        working-directory: test/e2e
+        run: npm install
+      - name: Install Chromium
+        working-directory: test/e2e
+        run: npx playwright install --with-deps chromium chromium-headless-shell
+      - name: Capture screenshots
+        working-directory: test/e2e
+        run: npm run screenshots
+      - name: Upload screenshots artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: docs/screenshots/
+      - name: Commit updated screenshots
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/screenshots/
+          if git diff --cached --quiet; then
+            echo "No screenshot changes"
+            exit 0
+          fi
+          git commit -m "docs: update UI screenshots [skip ci]"
+          git push origin HEAD:main

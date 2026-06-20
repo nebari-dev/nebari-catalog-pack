@@ -1,0 +1,36 @@
+# Helm values for an operator-managed install on a Nebari platform.
+# Used by examples/argocd-application.yaml (inline) or:
+#   helm install nebari-catalog-pack nebari/nebari-catalog-pack -f nebari-values.yaml
+
+nebariapp:
+  enabled: true
+  hostname: catalog.nebari.example.com
+  auth:
+    enabled: true
+    provider: keycloak
+    groups: ["admin"]   # this pack can install software cluster-wide
+  landingPage:
+    enabled: true
+    displayName: "Pack Catalog"
+    description: "Browse and install Nebari software packs"
+    category: "Platform"
+    priority: 50
+
+catalog:
+  install:
+    # Base domain for installed packs' NebariApp hostnames (<pack>.<domain>).
+    domain: nebari.example.com
+    preferOCI: true
+  gitops:
+    # Point at the SAME GitOps repo ArgoCD watches so the catalog can install
+    # packs into it.
+    repoURL: https://github.com/your-org/your-gitops.git
+    branch: main
+    path: clusters/your-cluster
+    tokenSecret:
+      name: gitops-token
+      key: token
+  argocd:
+    enabled: true
+    namespace: argocd
+    rootApp: nebari-root

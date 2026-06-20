@@ -1,0 +1,12 @@
+{
+  "name": "nebari-catalog-pack-e2e",
+  "private": true,
+  "description": "Playwright screenshot harness for nebari-catalog-pack",
+  "scripts": {
+    "screenshots": "playwright test",
+    "install:browser": "playwright install --with-deps chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}
