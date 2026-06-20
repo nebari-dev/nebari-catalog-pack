@@ -1,0 +1,26 @@
+nebari-catalog-pack {{ .Chart.AppVersion }} installed as release "{{ .Release.Name }}".
+
+The catalog browses packs from:
+  {{ .Values.catalog.registry.namespace }}/{{ .Values.catalog.registry.chartPrefix }} ({{ .Values.catalog.registry.oci }})
+
+Install capability:
+{{- if .Values.catalog.gitops.repoURL }}
+  ENABLED -> commits Applications to {{ .Values.catalog.gitops.repoURL }}
+    branch:  {{ .Values.catalog.gitops.branch }}
+    appsDir: {{ if .Values.catalog.gitops.path }}{{ .Values.catalog.gitops.path }}/apps{{ else }}apps{{ end }}
+  {{- if and (not .Values.catalog.gitops.tokenSecret.name) (not .Values.catalog.gitops.sshKeySecret.name) }}
+  WARNING: no git credential Secret configured. Set catalog.gitops.tokenSecret
+           or catalog.gitops.sshKeySecret, or pushes will fail for remote repos.
+  {{- end }}
+{{- else }}
+  READ-ONLY -> browsing only. Set catalog.gitops.repoURL (and a credential
+  Secret) to enable installing packs into your GitOps repository.
+{{- end }}
+
+Reach the UI:
+{{- if .Values.nebariapp.enabled }}
+  https://{{ .Values.nebariapp.hostname }}{{ .Values.catalog.basePath }}/
+{{- else }}
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "nebari-catalog-pack.fullname" . }} 8080:{{ .Values.service.port }}
+  then open http://localhost:8080{{ .Values.catalog.basePath }}/
+{{- end }}

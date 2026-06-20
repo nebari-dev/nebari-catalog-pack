@@ -1,0 +1,140 @@
+# Default values for nebari-catalog-pack.
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/nebari-dev/nebari-catalog-pack
+  # tag defaults to the chart appVersion when empty
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+podAnnotations: {}
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  fsGroup: 65532
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+service:
+  type: ClusterIP
+  port: 80
+
+# ---------------------------------------------------------------------------
+# Catalog application configuration. Maps to CATALOG_* environment variables.
+# ---------------------------------------------------------------------------
+catalog:
+  # basePath sets a URL prefix when routed under a sub-path (e.g. /catalog).
+  basePath: ""
+
+  # When true, installs only render and preview the manifest (nothing committed).
+  dryRun: false
+
+  # Registry to enumerate packs from. Defaults to the Nebari quay namespace.
+  registry:
+    api: "https://quay.io/api/v1"
+    oci: "https://quay.io/v2"
+    namespace: "nebari"
+    chartPrefix: "charts"
+    # ociPullBase overrides the OCI source baked into generated Applications.
+    # Derived as oci://<host>/<namespace>/<chartPrefix> when empty.
+    ociPullBase: ""
+
+  # Best-effort per-pack metadata (display name, icon, description, level).
+  metadataURLTemplate: "https://raw.githubusercontent.com/nebari-dev/%s/main/pack-metadata.yaml"
+
+  # GitOps repository ArgoCD watches. REQUIRED to enable installs; when repoURL
+  # is empty the catalog runs read-only (browse only).
+  gitops:
+    repoURL: ""
+    branch: "main"
+    # Sub-directory for this cluster, e.g. "clusters/aws-nic-deploy".
+    # Applications are written to <path>/apps/<name>.yaml.
+    path: ""
+    author:
+      name: "nebari-catalog"
+      email: "catalog@nebari.dev"
+    # Reference an existing Secret holding a git PAT. Mutually exclusive with ssh.
+    tokenSecret:
+      name: ""
+      key: "token"
+    # Reference an existing Secret holding an SSH private key (mounted at /etc/git-ssh).
+    sshKeySecret:
+      name: ""
+      key: "ssh-privatekey"
+
+  # ArgoCD reconcile nudge after a commit.
+  argocd:
+    enabled: true
+    namespace: "argocd"
+    rootApp: "nebari-root"
+
+  # Conventions stamped into generated Application manifests.
+  install:
+    project: "foundational"
+    namespace: "nebari-system"
+    syncWave: "7"
+    partOf: "nebari-packs"
+    # Base domain for installed packs' NebariApp hostnames (<pack>.<domain>).
+    domain: ""
+    # Git source fallback when a pack is not pulled via OCI. %s = pack name.
+    gitTemplate: "https://github.com/nebari-dev/%s.git"
+    # Prefer the OCI registry source over git when a version is available.
+    preferOCI: true
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+rbac:
+  # Create a Role/RoleBinding in the ArgoCD namespace granting the catalog
+  # permission to refresh the root app and read child Application status.
+  create: true
+
+# ---------------------------------------------------------------------------
+# NebariApp integration. Gated so the chart installs standalone (disabled) and
+# on a Nebari platform (enabled). The catalog writes to git and installs
+# software, so auth is enabled and restricted to admins by default.
+# ---------------------------------------------------------------------------
+nebariapp:
+  enabled: false
+  # hostname: catalog.nebari.example.com   # REQUIRED when enabled
+  service:
+    name: ""    # defaults to the chart fullname
+    port: 80
+  auth:
+    enabled: true
+    provider: keycloak
+    provisionClient: true
+    scopes: ["openid", "profile", "email"]
+    # Restrict to administrators — this tool can install software cluster-wide.
+    groups: ["admin"]
+  gateway: public
+  landingPage:
+    enabled: true
+    displayName: "Pack Catalog"
+    description: "Browse and install Nebari software packs"
+    icon: "kubernetes"
+    category: "Platform"
+    priority: 50
+    healthCheck:
+      enabled: true
+      path: "/healthz"
+      intervalSeconds: 30
+      timeoutSeconds: 5

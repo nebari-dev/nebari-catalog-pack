@@ -1,0 +1,18 @@
+apiVersion: v2
+name: nebari-catalog-pack
+description: A Nebari software pack that browses an OCI registry of packs and installs them into the cluster's GitOps repository as ArgoCD Applications.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - nebari
+  - argocd
+  - gitops
+  - catalog
+  - software-pack
+home: https://github.com/nebari-dev/nebari-catalog-pack
+sources:
+  - https://github.com/nebari-dev/nebari-catalog-pack
+maintainers:
+  - name: Nebari Development Team
+    url: https://github.com/nebari-dev

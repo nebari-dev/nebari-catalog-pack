@@ -1,0 +1,154 @@
+package ui
+
+import (
+	"fmt"
+	"github.com/nebari-dev/nebari-catalog-pack/internal/registry"
+)
+
+// Layout is the full gallery page.
+templ Layout(data PageData) {
+	<!doctype html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ data.Title }</title>
+			<link rel="stylesheet" href={ asset(data.BasePath, "/static/app.css") }/>
+			<script src={ asset(data.BasePath, "/static/htmx.min.js") }></script>
+		</head>
+		<body>
+			<header class="topbar">
+				<div class="brand">
+					<span class="logo">◆</span>
+					<div>
+						<h1>{ data.Title }</h1>
+						<p class="subtitle">Browse and install Nebari software packs from <code>{ data.RegistryRef }</code></p>
+					</div>
+				</div>
+				<div class="status">
+					if !data.InstallEnabled {
+						<span class="pill pill-warn" title="Set CATALOG_GITOPS_REPO_URL to enable installs">read-only</span>
+					} else if data.DryRun {
+						<span class="pill pill-warn">dry-run</span>
+					} else {
+						<span class="pill pill-ok">install ready</span>
+					}
+				</div>
+			</header>
+			if data.Error != "" {
+				<div class="banner banner-error">{ data.Error }</div>
+			}
+			<main class="gallery">
+				if len(data.Packs) == 0 {
+					<p class="empty">No packs found in the registry.</p>
+				}
+				for _, p := range data.Packs {
+					@Card(data, p)
+				}
+			</main>
+			<footer class="foot">
+				<span>{ fmt.Sprintf("%d packs", len(data.Packs)) }</span>
+				<span>nebari-catalog-pack</span>
+			</footer>
+		</body>
+	</html>
+}
+
+// Card renders a single pack as a gallery card.
+templ Card(data PageData, p registry.Pack) {
+	<article class="card" data-pack={ p.Name }>
+		<div class="card-media">
+			if p.Icon != "" {
+				<img class="card-icon" src={ p.Icon } alt={ p.Title() } loading="lazy"/>
+			} else {
+				<div class="card-icon card-icon-fallback">{ initials(p.Title()) }</div>
+			}
+			<div class="card-actions">
+				if data.InstallEnabled {
+					<button
+						class="btn btn-primary"
+						hx-post={ asset(data.BasePath, "/install") }
+						hx-vals={ installVals(p) }
+						hx-target={ "#result-" + p.Name }
+						hx-swap="innerHTML"
+						hx-indicator={ "#spin-" + p.Name }
+					>
+						if data.DryRun {
+							Preview
+						} else {
+							Install
+						}
+					</button>
+				} else {
+					<button class="btn" disabled title="Installs disabled (read-only)">Install</button>
+				}
+				if p.Homepage != "" {
+					<a class="btn btn-ghost" href={ templ.SafeURL(p.Homepage) } target="_blank" rel="noopener">Docs</a>
+				}
+			</div>
+		</div>
+		<div class="card-body">
+			<div class="card-head">
+				<h3 class="card-title">{ p.Title() }</h3>
+				if p.Level != "" {
+					<span class={ "tag", "tag-" + p.Level }>{ p.Level }</span>
+				}
+			</div>
+			if p.Description != "" {
+				<p class="card-desc">{ p.Description }</p>
+			}
+			<div class="card-meta">
+				if p.Category != "" {
+					<span class="chip">{ p.Category }</span>
+				}
+				if p.Latest != "" {
+					<span class="chip chip-ver">v{ p.Latest }</span>
+				}
+				if p.Deprecated {
+					<span class="chip chip-warn">deprecated</span>
+				}
+			</div>
+		</div>
+		<div class="card-result">
+			<span id={ "spin-" + p.Name } class="htmx-indicator spinner">installing…</span>
+			<div id={ "result-" + p.Name }></div>
+		</div>
+	</article>
+}
+
+// Result is the htmx fragment swapped in after an install attempt.
+templ Result(r InstallResult) {
+	if r.OK {
+		<div class="result result-ok">
+			<strong>
+				if r.DryRun {
+					Preview ready
+				} else {
+					Installed { r.Pack }
+				}
+			</strong>
+			<p>{ r.Message }</p>
+			if r.File != "" {
+				<p class="muted">{ r.File }
+					if r.CommitHash != "" {
+						{ " @ " + short(r.CommitHash) }
+					}
+				</p>
+			}
+			if r.Health != "" {
+				<p class="muted">{ fmt.Sprintf("health: %s · sync: %s", r.Health, r.Sync) }</p>
+			}
+			if r.Manifest != "" {
+				<details>
+					<summary>Application manifest</summary>
+					<pre class="manifest">{ r.Manifest }</pre>
+				</details>
+			}
+		</div>
+	} else {
+		<div class="result result-err">
+			<strong>Failed</strong>
+			<p>{ r.Message }</p>
+		</div>
+	}
+}

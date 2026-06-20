@@ -1,0 +1,12 @@
+# Metadata consumed by the Nebari software-pack dashboard and by this catalog's
+# own discovery enrichment. Schema:
+# https://github.com/nebari-dev/software-pack-dashboard/blob/main/schema/pack-metadata.schema.json
+name: nebari-catalog-pack
+display_name: Pack Catalog
+description: Browse and install Nebari software packs from the cluster registry.
+icon: kubernetes
+category: Platform
+level: experimental
+owner: nebari-dev
+homepage: https://github.com/nebari-dev/nebari-catalog-pack
+deprecated: false

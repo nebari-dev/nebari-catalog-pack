@@ -1,0 +1,5 @@
+/bin/
+/out/
+*.tgz
+.DS_Store
+coverage.out

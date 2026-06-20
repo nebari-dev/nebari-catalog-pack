@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    name: Go build & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache: true
+      - name: Generate templ components
+        run: go run github.com/a-h/templ/cmd/templ@v0.3.857 generate
+      - name: Verify generated code is up to date
+        run: git diff --exit-code -- internal/server/ui || (echo "templ output is stale: run 'templ generate' and commit"; exit 1)
+      - name: Vet
+        run: go vet ./...
+      - name: Test
+        run: go test -race ./...
+      - name: Build
+        run: go build ./...
+
+  helm:
+    name: Helm lint & template
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - name: Lint
+        run: helm lint chart
+      - name: Template (NebariApp disabled)
+        run: helm template catalog chart
+      - name: Template (NebariApp enabled)
+        run: |
+          helm template catalog chart \
+            --set nebariapp.enabled=true \
+            --set nebariapp.hostname=catalog.nebari.example.com \
+            --set catalog.gitops.repoURL=https://github.com/nebari-dev/example.git \
+            --set catalog.gitops.tokenSecret.name=gitops-token

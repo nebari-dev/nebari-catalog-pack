@@ -1,0 +1,39 @@
+{{- if .Values.nebariapp.enabled }}
+# NebariApp wires this service into the platform: HTTPRoute on the shared
+# gateway, TLS via cert-manager, and Keycloak OIDC. The operator also renders
+# the landingPage entry in the platform app gallery.
+#
+# This is gated behind nebariapp.enabled so the chart installs standalone
+# (disabled) and on a Nebari platform (enabled). Requires the target namespace
+# to be labeled nebari.dev/managed=true.
+apiVersion: reconcilers.nebari.dev/v1
+kind: NebariApp
+metadata:
+  name: {{ include "nebari-catalog-pack.fullname" . }}
+  labels:
+    {{- include "nebari-catalog-pack.labels" . | nindent 4 }}
+spec:
+  hostname: {{ required "nebariapp.hostname is required when nebariapp.enabled=true" .Values.nebariapp.hostname | quote }}
+  service:
+    name: {{ include "nebari-catalog-pack.serviceName" . }}
+    port: {{ .Values.nebariapp.service.port }}
+  serviceAccountName: {{ include "nebari-catalog-pack.serviceAccountName" . }}
+  routing:
+    routes:
+      - pathPrefix: {{ .Values.catalog.basePath | default "/" | quote }}
+        pathType: PathPrefix
+    publicRoutes:
+      - pathPrefix: {{ printf "%s/healthz" .Values.catalog.basePath | quote }}
+        pathType: Exact
+    tls:
+      enabled: true
+  {{- with .Values.nebariapp.auth }}
+  auth:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  gateway: {{ .Values.nebariapp.gateway }}
+  {{- with .Values.nebariapp.landingPage }}
+  landingPage:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

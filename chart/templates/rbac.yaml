@@ -1,0 +1,31 @@
+{{- if .Values.rbac.create }}
+# The catalog refreshes the ArgoCD root app and reads child Application status,
+# so it needs get/list/watch/patch on Applications in the ArgoCD namespace.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "nebari-catalog-pack.fullname" . }}-argocd
+  namespace: {{ .Values.catalog.argocd.namespace }}
+  labels:
+    {{- include "nebari-catalog-pack.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["argoproj.io"]
+    resources: ["applications"]
+    verbs: ["get", "list", "watch", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "nebari-catalog-pack.fullname" . }}-argocd
+  namespace: {{ .Values.catalog.argocd.namespace }}
+  labels:
+    {{- include "nebari-catalog-pack.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "nebari-catalog-pack.fullname" . }}-argocd
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "nebari-catalog-pack.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

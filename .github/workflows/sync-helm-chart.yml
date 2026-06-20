@@ -1,0 +1,51 @@
+name: Sync Helm Chart to nebari-dev/helm-repository
+
+# On a published release, bump the chart version to the tag and open a PR in
+# nebari-dev/helm-repository. When merged, that repo's release workflow packages
+# and publishes the chart to quay.io/nebari/charts and the gh-pages index — the
+# same registry this catalog itself browses.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Skip PR creation and just lint the chart"
+        required: false
+        default: "false"
+        type: boolean
+
+jobs:
+  sync:
+    name: Sync chart
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Bump chart version to release tag
+        if: github.event_name == 'release'
+        run: |
+          version="${{ github.event.release.tag_name }}"
+          version="${version#v}"
+          sed -i "s/^version:.*/version: ${version}/" chart/Chart.yaml
+          sed -i "s/^appVersion:.*/appVersion: \"${version}\"/" chart/Chart.yaml
+
+      - name: Sync chart to helm-repository
+        if: github.event.inputs.dry-run != 'true'
+        uses: nebari-dev/helm-repository/.github/actions/sync-chart@main
+        with:
+          chart-path: chart
+          token: ${{ secrets.NEBARI_HELM_REPO_TOKEN }}
+          pr-labels: "automated,helm-sync"
+
+      - name: Install Helm (dry-run)
+        if: github.event.inputs.dry-run == 'true'
+        uses: azure/setup-helm@v4
+
+      - name: Lint chart (dry-run)
+        if: github.event.inputs.dry-run == 'true'
+        run: helm lint chart
