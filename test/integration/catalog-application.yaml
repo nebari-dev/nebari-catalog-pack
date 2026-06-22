@@ -1,0 +1,65 @@
+# ArgoCD Application used by .github/workflows/integration.yml (Layer 1) to
+# deploy the catalog itself onto the action-nebari-sandbox platform and assert
+# it reaches Healthy — the same "deploy the pack onto a real cluster" check the
+# other Nebari packs run.
+#
+# Unlike examples/argocd-application.yaml (which sources the published chart
+# from quay), this sources the chart + the CI-built image from the sandbox's
+# local file:// GitOps repo:
+#   - add-software-pack copies ./chart into ${GITOPS_DIR}/nebari-catalog-pack/
+#   - the image nebari-catalog-pack:ci is built and `k3d image import`ed
+#
+# envsubst expands ${GITOPS_DIR} at registration time. The NebariApp is left
+# disabled (no operator/keycloak dependency needed just to prove the chart
+# deploys) and the catalog runs read-only here — the GitOps write path is
+# exercised separately in Layer 2 against the real repo.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: nebari-catalog-pack
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: nebari-packs
+    app.kubernetes.io/managed-by: nebari-infrastructure-core
+  annotations:
+    argocd.argoproj.io/sync-wave: "7"
+spec:
+  project: foundational
+  source:
+    repoURL: "file://${GITOPS_DIR}"
+    targetRevision: HEAD
+    path: nebari-catalog-pack
+    helm:
+      releaseName: nebari-catalog-pack
+      values: |
+        image:
+          repository: nebari-catalog-pack
+          tag: ci
+          pullPolicy: IfNotPresent
+        nebariapp:
+          enabled: false
+        rbac:
+          # No ArgoCD-namespace Role needed: the catalog runs read-only here
+          # and the in-cluster nudge is disabled.
+          create: false
+        catalog:
+          # Empty repoURL -> read-only gallery; Healthy needs only the
+          # Deployment serving /healthz, no git credentials.
+          gitops:
+            repoURL: ""
+          argocd:
+            enabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: nebari-system
+  syncPolicy:
+    managedNamespaceMetadata:
+      labels:
+        nebari.dev/managed: "true"
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

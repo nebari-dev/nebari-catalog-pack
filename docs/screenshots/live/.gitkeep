@@ -1,0 +1,2 @@
+# Live integration screenshots are written here by .github/workflows/integration.yml
+# on main-branch runs (Playwright against the deployed catalog). Intentionally empty otherwise.

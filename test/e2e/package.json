@@ -4,6 +4,7 @@
   "description": "Playwright screenshot harness for nebari-catalog-pack",
   "scripts": {
     "screenshots": "playwright test",
+    "screenshots:live": "playwright test --config playwright.live.config.js",
     "install:browser": "playwright install --with-deps chromium"
   },
   "devDependencies": {

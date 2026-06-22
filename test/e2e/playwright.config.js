@@ -11,6 +11,8 @@ const BASE = `http://localhost:${PORT}`;
 
 module.exports = defineConfig({
   testDir: ".",
+  // Demo screenshots only; the live suite has its own config (playwright.live.config.js).
+  testMatch: /screenshots\.spec\.js$/,
   fullyParallel: false,
   workers: 1,
   timeout: 60_000,

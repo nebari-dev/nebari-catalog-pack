@@ -20,6 +20,7 @@
 <p align="center">
   <a href="https://github.com/nebari-dev/nebari-catalog-pack/actions/workflows/ci.yml"><img src="https://github.com/nebari-dev/nebari-catalog-pack/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/nebari-dev/nebari-catalog-pack/actions/workflows/build-image.yml"><img src="https://github.com/nebari-dev/nebari-catalog-pack/actions/workflows/build-image.yml/badge.svg" alt="Build Image"></a>
+  <a href="https://github.com/nebari-dev/nebari-catalog-pack/actions/workflows/integration.yml"><img src="https://github.com/nebari-dev/nebari-catalog-pack/actions/workflows/integration.yml/badge.svg" alt="Integration"></a>
   <a href="https://github.com/nebari-dev/nebari-catalog-pack/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License"></a>
   <a href="https://github.com/nebari-dev/nebari-catalog-pack/releases/latest"><img src="https://img.shields.io/github/v/release/nebari-dev/nebari-catalog-pack?logo=github&label=release&include_prereleases" alt="Latest Release"></a>
   <a href="https://golang.org"><img src="https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go&logoColor=white" alt="Go 1.26+"></a>
@@ -171,6 +172,19 @@ cd test/e2e && npm install && npm run screenshots   # regenerate UI screenshots
 
 The UI is server-rendered with [templ](https://templ.guide) and [htmx](https://htmx.org) (both vendored — no
 CDN, no node toolchain at runtime). Generated `*_templ.go` files are committed; CI verifies they are up to date.
+
+### Integration tests
+
+[`integration.yml`](.github/workflows/integration.yml) boots a full NIC platform with
+[`action-nebari-sandbox`](https://github.com/nebari-dev/action-nebari-sandbox) (`profile: platform`) and exercises
+the pack against a real cluster in two layers: **(1) deploy-and-Healthy** — builds the image and deploys the chart
+onto the platform via the `add-software-pack` sub-action, asserting `Application/nebari-catalog-pack` reaches
+`Healthy`; **(2) the real install path** — runs the catalog against the sandbox's live `file://` GitOps repo +
+ArgoCD, drives a genuine install through the UI with the Playwright harness in [`test/e2e/`](test/e2e/)
+(`npm run screenshots:live`), and asserts the catalog committed an `Application` that ArgoCD then created. The live
+screenshots are captured under [`docs/screenshots/live/`](docs/screenshots/live/) (committed on `main` runs;
+artifact-only on PRs). It runs on PRs touching the payload, on `main`, and on demand — heavier than `ci.yml`,
+which stays cluster-free.
 
 ## Project Structure
 
