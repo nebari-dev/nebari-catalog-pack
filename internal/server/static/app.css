@@ -1,31 +1,126 @@
+/*
+ * Nebari Pack Catalog — styling aligned with the Nebari brand.
+ *
+ * Tokens mirror nebari-dev/nebari-design (registry/nebari/globals.css): the
+ * oklch primitive ramps and the semantic Light/Dark roles from the Figma
+ * variables library. This is a server-rendered templ + plain-CSS app (no
+ * Tailwind/shadcn), so we consume the token VALUES directly rather than the
+ * React components. Primary brand color is magenta; teal is the accent.
+ *
+ * Fonts reference Geist (sans) + IBM Plex Mono (mono) per the Nebari theme and
+ * fall back gracefully to the system stacks — no webfonts are bundled (the app
+ * ships no-CDN, no runtime external requests).
+ */
+
 :root {
-  --bg: #0f1117;
-  --bg-elev: #171a23;
-  --card: #1b1f2a;
-  --card-hover: #222735;
-  --border: #2a3040;
-  --text: #e6e9f0;
-  --muted: #9aa3b2;
-  --accent: #4f8cff;
-  --accent-ink: #ffffff;
-  --ok: #2ecc71;
-  --warn: #f5a623;
-  --err: #ff5c5c;
-  --radius: 12px;
-  --shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* ── Primitives: Primary Magenta ─────────────────────────────────────── */
+  --primary-magenta-50: oklch(97.93% 0.0118 313.22);
+  --primary-magenta-100: oklch(95.07% 0.0323 311.75);
+  --primary-magenta-400: oklch(69.98% 0.1926 311.48);
+  --primary-magenta-500: oklch(61.98% 0.2159 311.67);
+  --primary-magenta-600: oklch(55.06% 0.1886 311.45);
+  --primary-magenta-700: oklch(47.01% 0.1577 311.26);
+
+  /* ── Primitives: Accent Teal ─────────────────────────────────────────── */
+  --accent-teal-300: oklch(77.96% 0.0893 187.30);
+  --accent-teal-500: oklch(61.96% 0.0932 187.62);
+  --accent-teal-600: oklch(55.09% 0.0808 187.38);
+
+  /* ── Primitives: Zinc (neutral) ──────────────────────────────────────── */
+  --zinc-50: oklch(97.91% 0 0);
+  --zinc-100: oklch(94.94% 0.0013 286.37);
+  --zinc-200: oklch(87.08% 0.0041 286.31);
+  --zinc-300: oklch(78.06% 0.0056 286.27);
+  --zinc-400: oklch(69.88% 0.0130 286.06);
+  --zinc-500: oklch(61.96% 0.0134 286.00);
+  --zinc-600: oklch(54.86% 0.0154 285.88);
+  --zinc-700: oklch(47.01% 0.0112 285.96);
+  --zinc-900: oklch(33.01% 0.0052 286.11);
+  --zinc-950: oklch(26.94% 0.0037 286.15);
+
+  /* ── Primitives: Feedback ramps ──────────────────────────────────────── */
+  --green-100: oklch(94.94% 0.0433 149.41);
+  --green-200: oklch(87.04% 0.0814 149.55);
+  --green-700: oklch(47.01% 0.1313 149.41);
+  --green-900: oklch(32.88% 0.0887 149.73);
+  --red-100: oklch(95.06% 0.0247 29.93);
+  --red-300: oklch(78.02% 0.1024 27.78);
+  --red-600: oklch(54.97% 0.2151 27.33);
+  --red-900: oklch(33.1% 0.1332 27.42);
+  --yellow-100: oklch(95.02% 0.0692 92.11);
+  --yellow-200: oklch(87.09% 0.1248 91.93);
+  --yellow-700: oklch(46.91% 0.0960 91.90);
+  --yellow-900: oklch(33.09% 0.0677 92.20);
+
+  --white: oklch(100% 0 0);
+
+  /* ── Fonts (Nebari theme) ────────────────────────────────────────────── */
+  --font-sans: "Geist Variable", Geist, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+
+  /* ── Semantic roles — Light (Figma "Light") ──────────────────────────── */
+  --bg: var(--zinc-50);
+  --bg-elev: var(--zinc-100);
+  --card: var(--white);
+  --card-hover: var(--zinc-50);
+  --border: var(--zinc-300);
+  --border-strong: var(--zinc-500);
+  --text: var(--zinc-950);
+  --muted: var(--zinc-600);
+
+  --accent: var(--primary-magenta-600);
+  --accent-hover: var(--primary-magenta-700);
+  --accent-ink: var(--white);
+  --ring: var(--primary-magenta-500);
+  --teal: var(--accent-teal-600);
+
+  /* Feedback: soft background fill + strong foreground (Figma pattern). */
+  --ok: var(--green-700);
+  --ok-bg: var(--green-100);
+  --ok-border: var(--green-200);
+  --warn: var(--yellow-700);
+  --warn-bg: var(--yellow-100);
+  --warn-border: var(--yellow-200);
+  --err: var(--red-600);
+  --err-bg: var(--red-100);
+  --err-border: var(--red-300);
+
+  --radius: 0.625rem;
+  --radius-sm: calc(var(--radius) - 4px);
+  --shadow: 0 6px 18px oklch(33.01% 0.1387 264.40 / 0.08);
+
+  font-family: var(--font-sans);
 }
 
-@media (prefers-color-scheme: light) {
+@media (prefers-color-scheme: dark) {
   :root {
-    --bg: #f5f6f8;
-    --bg-elev: #ffffff;
-    --card: #ffffff;
-    --card-hover: #fbfcff;
-    --border: #e2e6ee;
-    --text: #1a1f2b;
-    --muted: #5b6472;
-    --shadow: 0 6px 18px rgba(20, 30, 60, 0.08);
+    /* Semantic roles — Dark (Figma "Dark"). */
+    --bg: var(--zinc-950);
+    --bg-elev: var(--zinc-900);
+    --card: var(--zinc-900);
+    --card-hover: oklch(36% 0.005 286.1);
+    --border: var(--zinc-700);
+    --border-strong: var(--zinc-500);
+    --text: var(--zinc-50);
+    --muted: var(--zinc-400);
+
+    --accent: var(--primary-magenta-500);
+    --accent-hover: var(--primary-magenta-400);
+    --accent-ink: oklch(0% 0 0);
+    --ring: var(--primary-magenta-400);
+    --teal: var(--accent-teal-300);
+
+    --ok: var(--green-200);
+    --ok-bg: var(--green-900);
+    --ok-border: var(--green-700);
+    --warn: var(--yellow-200);
+    --warn-bg: var(--yellow-900);
+    --warn-border: var(--yellow-700);
+    --err: var(--red-300);
+    --err-bg: var(--red-900);
+    --err-border: var(--red-600);
+
+    --shadow: 0 8px 24px oklch(0% 0 0 / 0.45);
   }
 }
 
@@ -35,8 +130,17 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
+  font-family: var(--font-sans);
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+code, .manifest { font-family: var(--font-mono); }
 
 .topbar {
   display: flex;
@@ -44,7 +148,7 @@ body {
   justify-content: space-between;
   gap: 16px;
   padding: 20px 28px;
-  background: var(--bg-elev);
+  background: var(--card);
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
@@ -53,13 +157,14 @@ body {
 
 .brand { display: flex; align-items: center; gap: 14px; }
 .brand .logo {
-  font-size: 28px;
-  color: var(--accent);
+  display: flex;
+  align-items: center;
   line-height: 1;
 }
-.topbar h1 { margin: 0; font-size: 1.15rem; }
+.brand .logo svg { height: 30px; width: auto; display: block; }
+.topbar h1 { margin: 0; font-size: 1.15rem; font-weight: 600; letter-spacing: -0.01em; }
 .subtitle { margin: 2px 0 0; color: var(--muted); font-size: 0.85rem; }
-.subtitle code { background: var(--card); padding: 1px 6px; border-radius: 6px; }
+.subtitle code { background: var(--bg-elev); padding: 1px 6px; border-radius: 6px; font-size: 0.8em; }
 
 .pill {
   font-size: 0.72rem;
@@ -69,11 +174,11 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-.pill-ok { background: rgba(46, 204, 113, 0.15); color: var(--ok); }
-.pill-warn { background: rgba(245, 166, 35, 0.15); color: var(--warn); }
+.pill-ok { background: var(--ok-bg); color: var(--ok); }
+.pill-warn { background: var(--warn-bg); color: var(--warn); }
 
 .banner { padding: 12px 28px; font-size: 0.9rem; }
-.banner-error { background: rgba(255, 92, 92, 0.12); color: var(--err); }
+.banner-error { background: var(--err-bg); color: var(--err); }
 
 .gallery {
   display: grid;
@@ -93,12 +198,12 @@ body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
 }
 .card:hover {
   transform: translateY(-3px);
   box-shadow: var(--shadow);
-  background: var(--card-hover);
+  border-color: var(--border-strong);
 }
 
 .card-media {
@@ -107,13 +212,16 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(79, 140, 255, 0.10), rgba(79, 140, 255, 0.02));
+  background:
+    linear-gradient(135deg,
+      oklch(61.98% 0.2159 311.67 / 0.12),
+      oklch(61.96% 0.0932 187.62 / 0.06));
   border-bottom: 1px solid var(--border);
 }
 .card-icon { max-height: 64px; max-width: 64px; transition: filter 180ms ease; }
 .card-icon-fallback {
   width: 64px; height: 64px;
-  border-radius: 16px;
+  border-radius: var(--radius);
   display: flex; align-items: center; justify-content: center;
   font-size: 1.5rem; font-weight: 700;
   background: var(--accent); color: var(--accent-ink);
@@ -127,7 +235,7 @@ body {
   justify-content: center;
   gap: 10px;
   opacity: 0;
-  background: rgba(10, 12, 18, 0.55);
+  background: oklch(20.76% 0.0135 258.37 / 0.55);
   transition: opacity 180ms ease;
 }
 .card:hover .card-actions { opacity: 1; }
@@ -138,21 +246,23 @@ body {
   font-size: 0.85rem;
   font-weight: 600;
   padding: 8px 16px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
-  background: var(--bg-elev);
+  background: var(--card);
   color: var(--text);
   cursor: pointer;
   text-decoration: none;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
 }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-.btn-primary:hover { filter: brightness(1.08); }
-.btn-ghost { background: transparent; }
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn-ghost { background: oklch(100% 0 0 / 0.1); border-color: oklch(100% 0 0 / 0.4); color: #fff; }
+.btn-ghost:hover { background: oklch(100% 0 0 / 0.2); }
 
 .card-body { padding: 14px 16px; flex: 1; }
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.card-title { margin: 0; font-size: 1rem; }
+.card-title { margin: 0; font-size: 1rem; font-weight: 600; }
 .card-desc {
   margin: 8px 0 0;
   color: var(--muted);
@@ -166,36 +276,37 @@ body {
 .chip {
   font-size: 0.72rem;
   padding: 3px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--bg-elev);
   border: 1px solid var(--border);
   color: var(--muted);
 }
-.chip-ver { color: var(--accent); }
-.chip-warn { color: var(--warn); }
+.chip-ver { color: var(--teal); border-color: var(--teal); }
+.chip-warn { color: var(--warn); border-color: var(--warn-border); }
 
 .tag {
   font-size: 0.66rem;
   font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: 0.03em;
   padding: 2px 7px;
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
   background: var(--bg-elev);
   border: 1px solid var(--border);
   color: var(--muted);
 }
-.tag-ga { color: var(--ok); }
-.tag-beta { color: var(--accent); }
-.tag-alpha, .tag-experimental { color: var(--warn); }
+.tag-ga { color: var(--ok); border-color: var(--ok-border); }
+.tag-beta { color: var(--accent); border-color: var(--accent); }
+.tag-alpha, .tag-experimental { color: var(--warn); border-color: var(--warn-border); }
 
 .card-result { padding: 0 16px 12px; }
 .spinner { color: var(--muted); font-size: 0.8rem; }
 .htmx-indicator { display: none; }
 .htmx-request .htmx-indicator { display: inline; }
 
-.result { font-size: 0.82rem; border-radius: 8px; padding: 10px 12px; margin-top: 6px; }
-.result-ok { background: rgba(46, 204, 113, 0.10); border: 1px solid rgba(46, 204, 113, 0.3); }
-.result-err { background: rgba(255, 92, 92, 0.10); border: 1px solid rgba(255, 92, 92, 0.3); }
+.result { font-size: 0.82rem; border-radius: var(--radius-sm); padding: 10px 12px; margin-top: 6px; }
+.result-ok { background: var(--ok-bg); border: 1px solid var(--ok-border); }
+.result-err { background: var(--err-bg); border: 1px solid var(--err-border); }
 .result p { margin: 4px 0 0; }
 .result .muted { color: var(--muted); font-size: 0.76rem; }
 .manifest {
@@ -203,7 +314,7 @@ body {
   overflow: auto;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 10px;
   font-size: 0.72rem;
   white-space: pre;
