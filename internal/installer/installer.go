@@ -65,6 +65,20 @@ func New(cfg *config.Config, writer *gitops.Writer, argo *argocd.Client) *Instal
 // Enabled reports whether installs can be committed.
 func (i *Installer) Enabled() bool { return i.writer != nil }
 
+// InstalledStatus returns the status of every ArgoCD Application, keyed by name
+// (which equals the pack name). Best-effort: returns nil when ArgoCD is not
+// configured/reachable or the list fails, so callers degrade gracefully.
+func (i *Installer) InstalledStatus(ctx context.Context) map[string]argocd.Status {
+	if i.argo == nil {
+		return nil
+	}
+	m, err := i.argo.List(ctx)
+	if err != nil {
+		return nil
+	}
+	return m
+}
+
 // buildRequest resolves a pack + version into an InstallRequest.
 func (i *Installer) buildRequest(p registry.Pack, version string) gitops.InstallRequest {
 	if version == "" {

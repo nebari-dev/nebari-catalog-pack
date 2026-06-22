@@ -33,6 +33,12 @@ type Server struct {
 	cached   []registry.Pack
 	cachedAt time.Time
 	cacheErr error
+
+	// installed-state cache (best-effort; short TTL so the gallery fragment's
+	// filter keystrokes don't hammer the ArgoCD API).
+	instMu       sync.Mutex
+	instCache    map[string]ui.InstalledInfo
+	instCachedAt time.Time
 }
 
 // New builds a Server.
@@ -58,7 +64,7 @@ func (s *Server) Handler() http.Handler {
 	})
 	mux.Handle(base+"/static/", http.StripPrefix(base+"/", http.FileServer(http.FS(staticFS))))
 	mux.HandleFunc(base+"/install", s.handleInstall)
-	mux.HandleFunc(base+"/gallery", s.handleGallery)
+	mux.HandleFunc(base+"/theme", s.handleTheme)
 	mux.HandleFunc(base+"/", s.handleIndex)
 	return mux
 }
@@ -92,41 +98,68 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	data := s.buildPageData(r)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := ui.Layout(data).Render(r.Context(), w); err != nil {
+	// htmx requests (toolbar filter / initial lazy load) get just the gallery
+	// fragment; a normal navigation gets the full shell, which then lazy-loads
+	// the gallery. This keeps the first paint independent of registry latency.
+	if r.Header.Get("HX-Request") == "true" {
+		if err := ui.GalleryFragment(s.buildGalleryData(r)).Render(r.Context(), w); err != nil {
+			s.log.Error("render gallery", "err", err)
+		}
+		return
+	}
+	if err := ui.Layout(s.buildShellData(r)).Render(r.Context(), w); err != nil {
 		s.log.Error("render index", "err", err)
 	}
 }
 
-// handleGallery returns just the gallery grid for the current filters, swapped
-// in by htmx from the toolbar controls.
-func (s *Server) handleGallery(w http.ResponseWriter, r *http.Request) {
-	data := s.buildPageData(r)
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := ui.Gallery(data).Render(r.Context(), w); err != nil {
-		s.log.Error("render gallery", "err", err)
+// handleTheme records the user's color-theme choice in a cookie and asks htmx
+// to refresh so the new <html> theme class takes effect. No client JS.
+func (s *Server) handleTheme(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
 	}
+	cookie := &http.Cookie{Name: "theme", Path: "/", SameSite: http.SameSiteLaxMode}
+	switch r.FormValue("mode") {
+	case "light":
+		cookie.Value, cookie.MaxAge = "light", int((365 * 24 * time.Hour).Seconds())
+	case "dark":
+		cookie.Value, cookie.MaxAge = "dark", int((365 * 24 * time.Hour).Seconds())
+	default: // system: clear the override
+		cookie.MaxAge = -1
+	}
+	http.SetCookie(w, cookie)
+	w.Header().Set("HX-Refresh", "true")
+	w.WriteHeader(http.StatusNoContent)
 }
 
-// buildPageData fetches the pack list, applies the request's filters/sort, and
-// assembles the view model shared by the full page and the gallery fragment.
-func (s *Server) buildPageData(r *http.Request) ui.PageData {
+// buildShellData assembles the page shell without touching the registry, so the
+// first paint is instant. Filters come from the URL (for shareable links); the
+// option lists and pack grid arrive with the lazy gallery fragment.
+func (s *Server) buildShellData(r *http.Request) ui.PageData {
 	q := r.URL.Query()
-	f := ui.Filters{
-		Query:    strings.TrimSpace(q.Get("q")),
-		Category: q.Get("category"),
-		Level:    q.Get("level"),
-		Sort:     q.Get("sort"),
-	}
-	data := ui.PageData{
+	return ui.PageData{
 		Title:          "Nebari Pack Catalog",
 		BasePath:       s.cfg.BasePath,
 		InstallEnabled: s.inst.Enabled(),
 		DryRun:         s.cfg.DryRun,
 		RegistryRef:    s.cfg.Registry.Namespace + "/" + s.cfg.Registry.ChartPrefix,
-		Filters:        f,
+		Theme:          themeFromRequest(r),
+		Filters: ui.Filters{
+			Query:    strings.TrimSpace(q.Get("q")),
+			Category: q.Get("category"),
+			Level:    q.Get("level"),
+			Sort:     q.Get("sort"),
+		},
 	}
+}
+
+// buildGalleryData fetches the pack list, applies the request's filters/sort,
+// and assembles the gallery fragment's view model.
+func (s *Server) buildGalleryData(r *http.Request) ui.PageData {
+	data := s.buildShellData(r)
+	f := data.Filters
 
 	all, err := s.packs(r.Context())
 	if err != nil {
@@ -139,11 +172,53 @@ func (s *Server) buildPageData(r *http.Request) ui.PageData {
 	f.Categories = distinctField(all, func(p registry.Pack) string { return p.Category })
 	f.Levels = distinctField(all, func(p registry.Pack) string { return p.Level })
 	data.Filters = f
+	data.Installed = s.installedStatus(r.Context())
 
 	filtered := filterPacks(all, f.Query, f.Category, f.Level)
 	sortPacks(filtered, f.Sort)
 	data.Packs = filtered
 	return data
+}
+
+// themeFromRequest reads the persisted color-theme override ("light"/"dark"),
+// or "" to follow the OS preference.
+func themeFromRequest(r *http.Request) string {
+	c, err := r.Cookie("theme")
+	if err != nil {
+		return ""
+	}
+	if c.Value == "light" || c.Value == "dark" {
+		return c.Value
+	}
+	return ""
+}
+
+// installedStatus returns which packs are already installed (by ArgoCD
+// Application name), from a short-lived cache. Best-effort: returns nil when
+// ArgoCD is unavailable. In demo mode it returns a fixed entry so the gallery
+// showcases the installed state offline.
+func (s *Server) installedStatus(ctx context.Context) map[string]ui.InstalledInfo {
+	if s.cfg.Demo {
+		return map[string]ui.InstalledInfo{
+			"nebari-data-science-pack": {Health: "Healthy", Sync: "Synced"},
+		}
+	}
+
+	s.instMu.Lock()
+	defer s.instMu.Unlock()
+	if s.instCache != nil && time.Since(s.instCachedAt) < 15*time.Second {
+		return s.instCache
+	}
+	raw := s.inst.InstalledStatus(ctx)
+	if raw == nil {
+		return nil
+	}
+	m := make(map[string]ui.InstalledInfo, len(raw))
+	for name, st := range raw {
+		m[name] = ui.InstalledInfo{Health: st.Health, Sync: st.Sync}
+	}
+	s.instCache, s.instCachedAt = m, time.Now()
+	return m
 }
 
 // filterPacks keeps packs matching the (optional) category, level, and
