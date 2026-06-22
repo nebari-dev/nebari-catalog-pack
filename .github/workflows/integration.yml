@@ -1,0 +1,233 @@
+name: Integration
+
+# Full-stack integration: stand up a complete NIC platform with
+# action-nebari-sandbox, then prove the catalog works against a real cluster in
+# two layers:
+#
+#   Layer 1 — deploy-and-Healthy: build the image, import it into k3d, and
+#     deploy the chart itself onto the platform via the add-software-pack
+#     sub-action. Asserts Application/nebari-catalog-pack reaches Healthy — the
+#     same "deploy the pack onto a real platform" check the other Nebari packs
+#     run.
+#
+#   Layer 2 — the real install path: run the catalog binary on the runner
+#     pointed at the sandbox's real file:// GitOps repo + ArgoCD, then drive a
+#     genuine install through the UI with Playwright. This exercises the thing
+#     that makes this pack unique (commit an Application -> nudge ArgoCD), grabs
+#     live screenshots, and asserts via kubectl that the catalog committed an
+#     Application and ArgoCD created the child object.
+#
+# Heavy (the platform profile boots the whole foundational stack), so it runs on
+# PRs touching the payload, on main, and on demand — not on every push.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "cmd/**"
+      - "internal/**"
+      - "chart/**"
+      - "examples/**"
+      - "test/**"
+      - "Dockerfile"
+      - ".github/workflows/integration.yml"
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      test-pack:
+        description: "Pack to install in Layer 2 (must exist in the registry)"
+        required: false
+        default: "nebari-lgtm-pack"
+
+concurrency:
+  group: integration-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  TEST_PACK: ${{ github.event.inputs.test-pack || 'nebari-lgtm-pack' }}
+  CLUSTER_NAME: nebari-catalog
+  # The sandbox platform profile serves the cluster under nebari.local.
+  CATALOG_DOMAIN: nebari.local
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    # platform bootstrap ~15 min + image build ~3 min + install/e2e ~10 min
+    timeout-minutes: 50
+    # Allow the live-screenshot commit step to push back to main.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # ── Build + import the catalog image (used by Layer 1) ─────────────────
+      - name: Build catalog image
+        run: docker build -t nebari-catalog-pack:ci .
+
+      # ── Platform cluster (k3d + NIC/ArgoCD + file:// GitOps repo) ──────────
+      - name: Boot a full NIC platform cluster
+        id: sandbox
+        uses: nebari-dev/action-nebari-sandbox@v2
+        with:
+          profile: platform
+          cluster-name: ${{ env.CLUSTER_NAME }}
+
+      - name: Surface KUBECONFIG for later steps
+        run: echo "KUBECONFIG=${{ steps.sandbox.outputs.kubeconfig }}" >> "$GITHUB_ENV"
+
+      - name: Import catalog image into k3d
+        run: k3d image import nebari-catalog-pack:ci -c "${{ env.CLUSTER_NAME }}"
+
+      # ── Layer 1: deploy the chart as a pack, assert Healthy ────────────────
+      - name: Register catalog as a software pack
+        uses: nebari-dev/action-nebari-sandbox/add-software-pack@v2
+        with:
+          gitops-dir: ${{ steps.sandbox.outputs.gitops-dir }}
+          app-name: nebari-catalog-pack
+          chart-source: ./chart
+          application-manifest: ./test/integration/catalog-application.yaml
+          wait-healthy: "true"
+          # Carry a unit — the sub-action passes this to `kubectl wait --timeout=`.
+          wait-timeout: "600s"
+
+      - name: Verify the deployed catalog
+        run: |
+          kubectl -n argocd get application nebari-catalog-pack \
+            -o jsonpath='{.status.health.status}' | grep -q Healthy
+          kubectl -n nebari-system rollout status deploy/nebari-catalog-pack --timeout=120s
+          echo "Layer 1: catalog deployed + Healthy on the platform ✓"
+
+      # ── Layer 2: drive a real install via the catalog on the runner ────────
+      # The in-cluster pod can't reach the host file:// repo, so we run the
+      # binary on the runner where it has direct filesystem access to the
+      # GitOps dir and a KUBECONFIG for the ArgoCD nudge. This is the same
+      # "engine against the live cluster" shape the other packs use.
+      - name: Start the catalog against the real GitOps repo
+        env:
+          GITOPS_DIR: ${{ steps.sandbox.outputs.gitops-dir }}
+        run: |
+          set -euo pipefail
+          # go-git pushes to the checked-out branch of this non-bare repo;
+          # allow it and keep the working tree in sync for inspection.
+          git -C "${GITOPS_DIR}" config --local --add safe.directory "${GITOPS_DIR}" || true
+          git -C "${GITOPS_DIR}" config receive.denyCurrentBranch updateInstead || true
+
+          CATALOG_LISTEN=":8080" \
+          CATALOG_GITOPS_REPO_URL="file://${GITOPS_DIR}" \
+          CATALOG_ARGOCD_ENABLED="true" \
+          CATALOG_ARGOCD_NAMESPACE="argocd" \
+          CATALOG_ARGOCD_ROOT_APP="nebari-root" \
+          CATALOG_DOMAIN="${CATALOG_DOMAIN}" \
+          nohup go run ./cmd/catalog > /tmp/catalog.log 2>&1 &
+          echo "CATALOG_PID=$!" >> "$GITHUB_ENV"
+
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8080/healthz >/dev/null; then
+              echo "catalog is up ✓"; exit 0
+            fi
+            sleep 2
+          done
+          echo "✗ catalog did not become healthy"; cat /tmp/catalog.log; exit 1
+
+      - name: Install Playwright (Chromium)
+        working-directory: test/e2e
+        run: |
+          npm install
+          npx playwright install --with-deps chromium chromium-headless-shell
+
+      - name: Drive a real install + capture live screenshots
+        working-directory: test/e2e
+        env:
+          CATALOG_URL: http://localhost:8080
+        run: npm run screenshots:live
+
+      - name: Upload live screenshots artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-screenshots
+          path: docs/screenshots/live/
+
+      # ── Assert the catalog actually installed the pack ─────────────────────
+      - name: Assert the install committed + ArgoCD created the Application
+        env:
+          GITOPS_DIR: ${{ steps.sandbox.outputs.gitops-dir }}
+        run: |
+          set -euo pipefail
+          PACK=$(cat test/e2e/installed-pack.txt)
+          echo "installed pack: ${PACK}"
+          [ -n "${PACK}" ] || { echo "✗ no pack was installed"; exit 1; }
+
+          # The catalog committed apps/<pack>.yaml into the GitOps repo.
+          git -C "${GITOPS_DIR}" config --local --add safe.directory "${GITOPS_DIR}" || true
+          git -C "${GITOPS_DIR}" log --oneline -5 || true
+          git -C "${GITOPS_DIR}" cat-file -e "HEAD:apps/${PACK}.yaml" \
+            && echo "committed apps/${PACK}.yaml ✓"
+
+          # Make the freshly-pushed objects readable by argocd-repo-server (uid
+          # 999) and re-nudge so it refetches, in case the catalog's nudge raced
+          # the perms of the new commit.
+          chmod -R a+rX "${GITOPS_DIR}"
+          kubectl -n argocd annotate application nebari-root \
+            argocd.argoproj.io/refresh=normal --overwrite || true
+
+          # nebari-root's app-of-apps creates the child Application object.
+          for i in $(seq 1 36); do
+            if kubectl -n argocd get application "${PACK}" >/dev/null 2>&1; then
+              echo "ArgoCD created Application/${PACK} ✓"
+              break
+            fi
+            [ "$i" = "36" ] && { echo "✗ Application/${PACK} never created"; kubectl -n argocd get applications; exit 1; }
+            echo "  waiting for Application/${PACK} ($i/36)…"; sleep 5
+          done
+
+          # Synced/Healthy of an arbitrary third-party pack is out of the
+          # catalog's control (it depends on that pack's chart + deps), so it is
+          # best-effort: logged, not gating.
+          echo "--- Application/${PACK} status (best-effort) ---"
+          kubectl -n argocd get application "${PACK}" \
+            -o jsonpath='sync={.status.sync.status} health={.status.health.status}{"\n"}' || true
+          echo "Layer 2: catalog installed ${PACK} via the GitOps path ✓"
+
+      # ── Commit live screenshots back (main only; never on PRs/forks) ───────
+      - name: Commit live screenshots
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/screenshots/live/
+          if git diff --cached --quiet; then
+            echo "No live screenshot changes"; exit 0
+          fi
+          git commit -m "docs: update live integration screenshots [skip ci]"
+          git push origin HEAD:main
+
+      # ── Diagnostics + cleanup ──────────────────────────────────────────────
+      - name: Diagnostics on failure
+        if: failure()
+        run: |
+          echo "=== catalog log ==="; cat /tmp/catalog.log 2>/dev/null || true
+          echo "=== ArgoCD applications ==="; kubectl get applications -n argocd -o wide || true
+          echo "=== pods (all namespaces) ==="; kubectl get pods -A || true
+          echo "=== catalog pod describe ==="; kubectl -n nebari-system describe deploy/nebari-catalog-pack || true
+
+      - name: Stop the catalog
+        if: always()
+        run: kill "${CATALOG_PID}" 2>/dev/null || true
+
+      - name: Cleanup cluster
+        if: always()
+        run: k3d cluster delete "${{ env.CLUSTER_NAME }}" || true
