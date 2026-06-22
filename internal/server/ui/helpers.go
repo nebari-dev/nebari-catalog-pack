@@ -88,6 +88,28 @@ func installedLabel(health string) string {
 	return "installed · " + health
 }
 
+// themeClass maps the theme override to the <html> class that forces it.
+// Empty (follow the OS) yields no class, so the prefers-color-scheme media
+// query applies.
+func themeClass(theme string) string {
+	switch theme {
+	case "light":
+		return "theme-light"
+	case "dark":
+		return "theme-dark"
+	default:
+		return ""
+	}
+}
+
+// boolStr renders a boolean as "true"/"false" for attributes like aria-pressed.
+func boolStr(b bool) string {
+	if b {
+		return "true"
+	}
+	return "false"
+}
+
 // short truncates a commit hash for display.
 func short(hash string) string {
 	if len(hash) > 7 {

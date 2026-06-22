@@ -5,15 +5,19 @@ import (
 	"github.com/nebari-dev/nebari-catalog-pack/internal/registry"
 )
 
-// Layout is the full gallery page: top bar, filter toolbar, and the (htmx-
-// swappable) gallery grid.
+// Layout is the full gallery page shell: top bar, filter toolbar, and a
+// lazy-loaded gallery. It deliberately does NOT depend on the pack list, so it
+// renders instantly even when the registry is slow; the gallery fragment (with
+// the cards, the result count, and the populated category/level filters) is
+// fetched on load via htmx.
 templ Layout(data PageData) {
 	<!doctype html>
-	<html lang="en">
+	<html lang="en" class={ themeClass(data.Theme) }>
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<title>{ data.Title }</title>
+			<link rel="icon" type="image/svg+xml" href={ asset(data.BasePath, "/static/favicon.svg") }/>
 			<link rel="stylesheet" href={ asset(data.BasePath, "/static/app.css") }/>
 			<script src={ asset(data.BasePath, "/static/htmx.min.js") }></script>
 		</head>
@@ -29,6 +33,7 @@ templ Layout(data PageData) {
 					</div>
 				</div>
 				<div class="status">
+					@themeSeg(data)
 					if !data.InstallEnabled {
 						<span class="badge badge-warning badge-uppercase" title="Set CATALOG_GITOPS_REPO_URL to enable installs">read-only</span>
 					} else if data.DryRun {
@@ -38,15 +43,19 @@ templ Layout(data PageData) {
 					}
 				</div>
 			</header>
-			if data.Error != "" {
-				<div class="banner banner-error">{ data.Error }</div>
-			}
 			@Toolbar(data)
-			<div id="gallery">
-				@Gallery(data)
+			<div
+				id="gallery"
+				hx-get={ asset(data.BasePath, "/") }
+				hx-trigger="load"
+				hx-target="#gallery"
+				hx-swap="innerHTML"
+				hx-include=".toolbar"
+			>
+				@GallerySkeleton()
 			</div>
 			<footer class="foot">
-				<span>{ fmt.Sprintf("%d packs", data.Total) }</span>
+				<span>{ data.RegistryRef }</span>
 				<span>nebari-catalog-pack</span>
 			</footer>
 		</body>
@@ -54,8 +63,9 @@ templ Layout(data PageData) {
 }
 
 // Toolbar renders the search box plus category/level/sort controls. Each
-// control issues an htmx GET to /gallery including the whole toolbar, so the
-// filters combine and only the grid is re-rendered.
+// control issues an htmx GET to the index (which returns the gallery fragment
+// for htmx requests) including the whole toolbar, so the filters combine, only
+// the grid is re-rendered, and the URL is updated for bookmarking/sharing.
 templ Toolbar(data PageData) {
 	<div class="toolbar">
 		<input
@@ -65,29 +75,16 @@ templ Toolbar(data PageData) {
 			value={ data.Filters.Query }
 			placeholder="Search packs…"
 			aria-label="Search packs"
-			hx-get={ asset(data.BasePath, "/gallery") }
+			hx-get={ asset(data.BasePath, "/") }
 			hx-trigger="input changed delay:250ms, search"
 			hx-target="#gallery"
 			hx-swap="innerHTML"
-			hx-include="closest .toolbar"
+			hx-push-url="true"
+			hx-include=".toolbar"
 		/>
-		if len(data.Filters.Categories) > 0 {
-			<select class="select" name="category" aria-label="Filter by category" hx-get={ asset(data.BasePath, "/gallery") } hx-trigger="change" hx-target="#gallery" hx-include="closest .toolbar">
-				<option value="" selected?={ data.Filters.Category == "" }>All categories</option>
-				for _, c := range data.Filters.Categories {
-					<option value={ c } selected?={ data.Filters.Category == c }>{ c }</option>
-				}
-			</select>
-		}
-		if len(data.Filters.Levels) > 0 {
-			<select class="select" name="level" aria-label="Filter by maturity level" hx-get={ asset(data.BasePath, "/gallery") } hx-trigger="change" hx-target="#gallery" hx-include="closest .toolbar">
-				<option value="" selected?={ data.Filters.Level == "" }>All levels</option>
-				for _, l := range data.Filters.Levels {
-					<option value={ l } selected?={ data.Filters.Level == l }>{ l }</option>
-				}
-			</select>
-		}
-		<select class="select" name="sort" aria-label="Sort" hx-get={ asset(data.BasePath, "/gallery") } hx-trigger="change" hx-target="#gallery" hx-include="closest .toolbar">
+		@categorySelect(data, false)
+		@levelSelect(data, false)
+		<select class="select" name="sort" aria-label="Sort" hx-get={ asset(data.BasePath, "/") } hx-trigger="change" hx-target="#gallery" hx-push-url="true" hx-include=".toolbar">
 			<option value="name" selected?={ data.Filters.Sort == "name" || data.Filters.Sort == "" }>Name (A–Z)</option>
 			<option value="maturity" selected?={ data.Filters.Sort == "maturity" }>Maturity</option>
 			<option value="category" selected?={ data.Filters.Sort == "category" }>Category</option>
@@ -95,26 +92,119 @@ templ Toolbar(data PageData) {
 	</div>
 }
 
-// Gallery is the grid of cards plus a result count. It is rendered both inside
-// the full page and as the htmx fragment swapped into #gallery on filter.
+// categorySelect / levelSelect are split out so the gallery fragment can
+// re-render them out-of-band (hx-swap-oob) once the pack list is known - the
+// shell renders them with only the current selection, then the lazy load fills
+// in the full option list.
+templ categorySelect(data PageData, oob bool) {
+	<select
+		id="f-category"
+		class="select"
+		name="category"
+		aria-label="Filter by category"
+		hx-get={ asset(data.BasePath, "/") }
+		hx-trigger="change"
+		hx-target="#gallery"
+		hx-push-url="true"
+		hx-include=".toolbar"
+		if oob {
+			hx-swap-oob="true"
+		}
+	>
+		<option value="" selected?={ data.Filters.Category == "" }>All categories</option>
+		if len(data.Filters.Categories) == 0 && data.Filters.Category != "" {
+			<option value={ data.Filters.Category } selected>{ data.Filters.Category }</option>
+		}
+		for _, c := range data.Filters.Categories {
+			<option value={ c } selected?={ data.Filters.Category == c }>{ c }</option>
+		}
+	</select>
+}
+
+templ levelSelect(data PageData, oob bool) {
+	<select
+		id="f-level"
+		class="select"
+		name="level"
+		aria-label="Filter by maturity level"
+		hx-get={ asset(data.BasePath, "/") }
+		hx-trigger="change"
+		hx-target="#gallery"
+		hx-push-url="true"
+		hx-include=".toolbar"
+		if oob {
+			hx-swap-oob="true"
+		}
+	>
+		<option value="" selected?={ data.Filters.Level == "" }>All levels</option>
+		if len(data.Filters.Levels) == 0 && data.Filters.Level != "" {
+			<option value={ data.Filters.Level } selected>{ data.Filters.Level }</option>
+		}
+		for _, l := range data.Filters.Levels {
+			<option value={ l } selected?={ data.Filters.Level == l }>{ l }</option>
+		}
+	</select>
+}
+
+// GalleryFragment is the htmx response for a filter/lazy-load: the grid swapped
+// into #gallery, plus out-of-band updates for the category/level filters so
+// their options reflect the (now-known) pack list.
+templ GalleryFragment(data PageData) {
+	@Gallery(data)
+	@categorySelect(data, true)
+	@levelSelect(data, true)
+}
+
+// Gallery is the grid of cards plus a result count (or an error / empty state).
 templ Gallery(data PageData) {
 	<div class="results-head">
 		<span class="toolbar-count">
-			if len(data.Packs) == data.Total {
+			if data.Error != "" {
+				registry unavailable
+			} else if len(data.Packs) == data.Total {
 				{ fmt.Sprintf("%d packs", data.Total) }
 			} else {
 				{ fmt.Sprintf("%d of %d packs", len(data.Packs), data.Total) }
 			}
 		</span>
 	</div>
+	if data.Error != "" {
+		<div class="banner banner-error" role="alert">{ data.Error }</div>
+	}
 	<main class="gallery">
-		if len(data.Packs) == 0 {
+		if len(data.Packs) == 0 && data.Error == "" {
 			<p class="empty">No packs match your filters.</p>
 		}
 		for _, p := range data.Packs {
 			@Card(data, p)
 		}
 	</main>
+}
+
+// GallerySkeleton is the placeholder shown while the gallery lazy-loads.
+templ GallerySkeleton() {
+	<div class="results-head"><span class="toolbar-count">loading…</span></div>
+	<main class="gallery" aria-busy="true" aria-label="Loading packs">
+		for i := 0; i < 8; i++ {
+			<div class="skeleton-card">
+				<div class="skeleton-media"></div>
+				<div class="skeleton-line med"></div>
+				<div class="skeleton-line short"></div>
+				<div class="skeleton-line short pad-bottom"></div>
+			</div>
+		}
+	</main>
+}
+
+// themeSeg is the Auto/Light/Dark theme control. Each option posts to /theme,
+// which sets a cookie and asks htmx to refresh so the new <html> theme class
+// applies. No client-side JavaScript.
+templ themeSeg(data PageData) {
+	<div class="theme-seg" role="group" aria-label="Color theme">
+		<button type="button" hx-post={ asset(data.BasePath, "/theme") } hx-vals={ `{"mode":"system"}` } hx-swap="none" aria-pressed={ boolStr(data.Theme == "") } title="Match system">Auto</button>
+		<button type="button" hx-post={ asset(data.BasePath, "/theme") } hx-vals={ `{"mode":"light"}` } hx-swap="none" aria-pressed={ boolStr(data.Theme == "light") } title="Light theme">Light</button>
+		<button type="button" hx-post={ asset(data.BasePath, "/theme") } hx-vals={ `{"mode":"dark"}` } hx-swap="none" aria-pressed={ boolStr(data.Theme == "dark") } title="Dark theme">Dark</button>
+	</div>
 }
 
 // nebariSymbol renders the Nebari brand mark (from nebari-dev/nebari-design,
@@ -197,7 +287,7 @@ templ Card(data PageData, p registry.Pack) {
 			<span id={ "spin-" + p.Name } class="htmx-indicator spinner">installing…</span>
 		</div>
 		<div class="card-result">
-			<div id={ "result-" + p.Name }></div>
+			<div id={ "result-" + p.Name } aria-live="polite"></div>
 		</div>
 	</article>
 }

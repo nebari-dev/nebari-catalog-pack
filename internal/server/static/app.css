@@ -105,9 +105,14 @@
   font-family: var(--font-sans);
 }
 
+/*
+ * Dark palette (Figma "Dark"). Applied when the OS prefers dark - unless the
+ * user has forced light via the theme toggle (.theme-light) - or when the user
+ * explicitly selects dark (.theme-dark). The two selectors below carry the same
+ * declarations; keep them in sync.
+ */
 @media (prefers-color-scheme: dark) {
-  :root {
-    /* Semantic roles — Dark (Figma "Dark"). */
+  :root:not(.theme-light) {
     --bg: var(--zinc-950);
     --bg-elev: var(--zinc-900);
     --card: var(--zinc-900);
@@ -116,13 +121,11 @@
     --input: var(--zinc-600);
     --text: var(--zinc-50);
     --muted: var(--zinc-400);
-
     --accent: var(--primary-magenta-500);
     --accent-hover: var(--primary-magenta-400);
     --accent-ink: oklch(0% 0 0);
     --ring: var(--primary-magenta-400);
     --teal: var(--accent-teal-300);
-
     --ok: var(--green-200);
     --ok-bg: var(--green-900);
     --warn: var(--yellow-200);
@@ -131,10 +134,34 @@
     --err-bg: var(--red-900);
     --info: var(--blue-200);
     --info-bg: var(--blue-900);
-
     --shadow-xs: 0 1px 2px 0 oklch(0% 0 0 / 0.3);
     --shadow: 0 10px 30px oklch(0% 0 0 / 0.5);
   }
+}
+:root.theme-dark {
+  --bg: var(--zinc-950);
+  --bg-elev: var(--zinc-900);
+  --card: var(--zinc-900);
+  --border: var(--zinc-700);
+  --border-strong: var(--zinc-500);
+  --input: var(--zinc-600);
+  --text: var(--zinc-50);
+  --muted: var(--zinc-400);
+  --accent: var(--primary-magenta-500);
+  --accent-hover: var(--primary-magenta-400);
+  --accent-ink: oklch(0% 0 0);
+  --ring: var(--primary-magenta-400);
+  --teal: var(--accent-teal-300);
+  --ok: var(--green-200);
+  --ok-bg: var(--green-900);
+  --warn: var(--yellow-200);
+  --warn-bg: var(--yellow-900);
+  --err: var(--red-300);
+  --err-bg: var(--red-900);
+  --info: var(--blue-200);
+  --info-bg: var(--blue-900);
+  --shadow-xs: 0 1px 2px 0 oklch(0% 0 0 / 0.3);
+  --shadow: 0 10px 30px oklch(0% 0 0 / 0.5);
 }
 
 * { box-sizing: border-box; }
@@ -381,6 +408,49 @@ code, .manifest { font-family: var(--font-mono); }
   font-size: 0.78rem;
   border-top: 1px solid var(--border);
 }
+
+/* ── Loading skeletons (shown while the gallery lazy-loads) ────────────── */
+.skeleton-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-xs);
+}
+.skeleton-media { height: 110px; border-bottom: 1px solid var(--border); }
+.skeleton-line { height: 0.7rem; border-radius: 999px; margin: 14px 16px 0; }
+.skeleton-line.short { width: 45%; }
+.skeleton-line.med { width: 70%; }
+.skeleton-line.pad-bottom { margin-bottom: 16px; }
+.skeleton-media, .skeleton-line {
+  background: linear-gradient(90deg, var(--bg-elev) 25%, var(--border) 37%, var(--bg-elev) 63%);
+  background-size: 400% 100%;
+  animation: nb-shimmer 1.4s ease infinite;
+}
+@keyframes nb-shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+
+/* ── Theme toggle (segmented: Auto / Light / Dark) ─────────────────────── */
+.status { display: inline-flex; align-items: center; gap: 12px; }
+.theme-seg {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.theme-seg button {
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 0.3rem 0.55rem;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
+}
+.theme-seg button + button { border-left: 1px solid var(--border); }
+.theme-seg button:hover { color: var(--text); }
+.theme-seg button[aria-pressed="true"] { background: var(--bg-elev); color: var(--text); }
 
 /* ── Responsive ────────────────────────────────────────────────────────── */
 @media (max-width: 600px) {
