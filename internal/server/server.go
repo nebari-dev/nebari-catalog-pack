@@ -33,6 +33,12 @@ type Server struct {
 	cached   []registry.Pack
 	cachedAt time.Time
 	cacheErr error
+
+	// installed-state cache (best-effort; short TTL so the gallery fragment's
+	// filter keystrokes don't hammer the ArgoCD API).
+	instMu       sync.Mutex
+	instCache    map[string]ui.InstalledInfo
+	instCachedAt time.Time
 }
 
 // New builds a Server.
@@ -139,11 +145,40 @@ func (s *Server) buildPageData(r *http.Request) ui.PageData {
 	f.Categories = distinctField(all, func(p registry.Pack) string { return p.Category })
 	f.Levels = distinctField(all, func(p registry.Pack) string { return p.Level })
 	data.Filters = f
+	data.Installed = s.installedStatus(r.Context())
 
 	filtered := filterPacks(all, f.Query, f.Category, f.Level)
 	sortPacks(filtered, f.Sort)
 	data.Packs = filtered
 	return data
+}
+
+// installedStatus returns which packs are already installed (by ArgoCD
+// Application name), from a short-lived cache. Best-effort: returns nil when
+// ArgoCD is unavailable. In demo mode it returns a fixed entry so the gallery
+// showcases the installed state offline.
+func (s *Server) installedStatus(ctx context.Context) map[string]ui.InstalledInfo {
+	if s.cfg.Demo {
+		return map[string]ui.InstalledInfo{
+			"nebari-data-science-pack": {Health: "Healthy", Sync: "Synced"},
+		}
+	}
+
+	s.instMu.Lock()
+	defer s.instMu.Unlock()
+	if s.instCache != nil && time.Since(s.instCachedAt) < 15*time.Second {
+		return s.instCache
+	}
+	raw := s.inst.InstalledStatus(ctx)
+	if raw == nil {
+		return nil
+	}
+	m := make(map[string]ui.InstalledInfo, len(raw))
+	for name, st := range raw {
+		m[name] = ui.InstalledInfo{Health: st.Health, Sync: st.Sync}
+	}
+	s.instCache, s.instCachedAt = m, time.Now()
+	return m
 }
 
 // filterPacks keeps packs matching the (optional) category, level, and

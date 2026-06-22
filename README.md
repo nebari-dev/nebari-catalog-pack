@@ -66,7 +66,8 @@ reconcile — installing the pack through ArgoCD's own model rather than out of 
 | Capability | Description |
 | --- | --- |
 | **Registry discovery** | Enumerates packs from a Quay/OCI registry (default `quay.io/nebari/charts`) and resolves each pack's versions. |
-| **Card gallery** | Renders every pack as a card with name, description, category, maturity level, and latest version. |
+| **Card gallery** | Renders every pack as a card with name, description, category, maturity level, and latest version. Search, filter (category/level), and sort the gallery. |
+| **Installed-state** | Flags packs already present in the cluster with their ArgoCD health/sync, and disables re-install. |
 | **Metadata enrichment** | Best-effort reads each pack's `pack-metadata.yaml` for display name, description, and maturity. |
 | **One-click install** | Generates an ArgoCD `Application` and commits it to your GitOps repo's `apps/` directory. |
 | **OCI or git source** | Sources the chart from `oci://quay.io/nebari/charts/<name>` (default) or `github.com/nebari-dev/<name>`. |

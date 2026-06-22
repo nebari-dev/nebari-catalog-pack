@@ -146,6 +146,9 @@ templ Card(data PageData, p registry.Pack) {
 				<p class="card-desc">{ p.Description }</p>
 			}
 			<div class="card-meta">
+				if inf := installed(data, p.Name); inf != nil {
+					<span class={ installedBadgeClass(inf.Health) } title={ "sync: " + inf.Sync }>{ installedLabel(inf.Health) }</span>
+				}
 				if p.Category != "" {
 					<span class="badge badge-secondary">{ p.Category }</span>
 				}
@@ -158,7 +161,9 @@ templ Card(data PageData, p registry.Pack) {
 			</div>
 		</div>
 		<div class="card-foot">
-			if data.InstallEnabled {
+			if data.InstallEnabled && installed(data, p.Name) != nil {
+				<button class="btn btn-sm" disabled title="Already installed in this cluster">Installed</button>
+			} else if data.InstallEnabled {
 				if len(p.Versions) > 1 {
 					<select id={ "ver-" + p.Name } class="select ver-select" name="version" aria-label={ "Version to install for " + p.Title() }>
 						for _, v := range p.Versions {

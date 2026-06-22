@@ -54,6 +54,40 @@ func levelBadgeClass(level string) string {
 	}
 }
 
+// installed returns the cluster status for a pack, or nil if it is not
+// installed (or installed-state is unknown).
+func installed(data PageData, name string) *InstalledInfo {
+	if data.Installed == nil {
+		return nil
+	}
+	if info, ok := data.Installed[name]; ok {
+		return &info
+	}
+	return nil
+}
+
+// installedBadgeClass colors the "installed" badge by health: Healthy -> success,
+// Degraded/Missing -> danger, anything else (Progressing, unknown) -> warning.
+func installedBadgeClass(health string) string {
+	switch health {
+	case "Healthy":
+		return "badge badge-success"
+	case "Degraded", "Missing":
+		return "badge badge-danger"
+	default:
+		return "badge badge-warning"
+	}
+}
+
+// installedLabel is the badge text: "installed" when Healthy, else
+// "installed · <health>" so a degraded/progressing state is visible.
+func installedLabel(health string) string {
+	if health == "" || health == "Healthy" {
+		return "installed"
+	}
+	return "installed · " + health
+}
+
 // short truncates a commit hash for display.
 func short(hash string) string {
 	if len(hash) > 7 {
