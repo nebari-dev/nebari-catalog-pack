@@ -31,13 +31,27 @@ func initials(title string) string {
 	return b.String()
 }
 
-// installVals renders the hx-vals JSON for a pack install button.
+// installVals renders the hx-vals JSON identifying the pack to install. The
+// version is supplied separately by the per-card <select> (pulled in via
+// hx-include), so it is intentionally not encoded here.
 func installVals(p registry.Pack) string {
-	b, _ := json.Marshal(map[string]string{
-		"pack":    p.Name,
-		"version": p.Latest,
-	})
+	b, _ := json.Marshal(map[string]string{"pack": p.Name})
 	return string(b)
+}
+
+// levelBadgeClass maps a maturity level to a badge variant, following the
+// brand feedback colors (ga=success, beta=info, alpha/experimental=warning).
+func levelBadgeClass(level string) string {
+	switch strings.ToLower(level) {
+	case "ga", "stable":
+		return "badge badge-success badge-uppercase"
+	case "beta":
+		return "badge badge-info badge-uppercase"
+	case "alpha", "experimental":
+		return "badge badge-warning badge-uppercase"
+	default:
+		return "badge badge-secondary badge-uppercase"
+	}
 }
 
 // short truncates a commit hash for display.
