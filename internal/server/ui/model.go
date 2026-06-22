@@ -13,6 +13,7 @@ type PageData struct {
 	DryRun         bool            // installs only preview
 	RegistryRef    string          // human label of the registry source, e.g. quay.io/nebari/charts
 	Error          string          // top-level error banner, if any
+	Theme          string          // "", "light", or "dark" (theme override; "" = follow the OS)
 	Filters        Filters         // current toolbar state + available options
 	// Installed maps pack name -> its ArgoCD status for packs already present
 	// in the cluster. Empty when ArgoCD is not configured/reachable.
