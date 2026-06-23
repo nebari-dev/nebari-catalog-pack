@@ -112,6 +112,9 @@ func (c *Client) List(ctx context.Context) (map[string]Status, error) {
 	return out, nil
 }
 
+// RootApp returns the configured app-of-apps name (for status display).
+func (c *Client) RootApp() string { return c.rootApp }
+
 // WaitReady polls until the named Application is Healthy+Synced or the timeout
 // elapses. It returns the last observed status.
 func (c *Client) WaitReady(ctx context.Context, name string, timeout, interval time.Duration) (Status, error) {

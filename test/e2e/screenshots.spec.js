@@ -1,7 +1,8 @@
-// Captures the catalog UI for the README/docs. Run with: npm run screenshots
+// Captures the catalog SPA for the README/docs. Run with: npm run screenshots
 //
-// The screens are deterministic: the server runs in demo mode (fixed pack list)
-// and dry-run (Preview renders the Application manifest without committing).
+// Deterministic: the Go binary runs in demo mode (fixed pack list) + dry-run,
+// so the grid renders offline data and Preview renders the Application manifest
+// without committing. The theme follows the emulated color scheme.
 const { test, expect } = require("@playwright/test");
 const fs = require("fs");
 const path = require("path");
@@ -13,8 +14,7 @@ test.beforeAll(() => fs.mkdirSync(DOCS, { recursive: true }));
 async function openGallery(page) {
   await page.goto("/");
   await expect(page.locator(".card").first()).toBeVisible();
-  // Let card fonts/gradients settle before capture.
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(500); // let fonts/gradients settle
 }
 
 test("gallery (light)", async ({ page }) => {
@@ -33,20 +33,13 @@ test("install preview", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "light" });
   await openGallery(page);
 
-  const pack = "nebari-lgtm-pack";
+  const pack = "nebari-lgtm-pack"; // present in demo fixtures, not installed
   const card = page.locator(`.card[data-pack="${pack}"]`);
   await card.scrollIntoViewIfNeeded();
-
-  // The action button is overlaid on the card (revealed on hover); click it,
-  // then move the mouse away so the result reads cleanly in the shot.
   await card.getByRole("button", { name: "Preview" }).click();
-  await expect(page.locator(`#result-${pack} .result`)).toBeVisible();
-
-  // Expand the rendered Application manifest.
-  await page.locator(`#result-${pack} details summary`).click();
-  await expect(page.locator(`#result-${pack} pre.manifest`)).toBeVisible();
-  await page.mouse.move(0, 0);
+  await expect(card.locator(".result")).toBeVisible();
+  await card.locator(".manifest summary").click();
+  await expect(card.locator(".manifest pre")).toBeVisible();
   await page.waitForTimeout(300);
-
   await card.screenshot({ path: path.join(DOCS, "install-preview.png") });
 });

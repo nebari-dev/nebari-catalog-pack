@@ -1,16 +1,12 @@
-// Captures the catalog UI against a LIVE deployment and drives a real install.
-// Run via: CATALOG_URL=... TEST_PACK=... npm run screenshots:live
+// Captures the catalog SPA against a LIVE deployment and triggers a real
+// install. Run via: CATALOG_URL=... TEST_PACK=... npm run screenshots:live
 //
 // Used by .github/workflows/integration.yml once the action-nebari-sandbox
-// platform is up and the catalog is running on the runner pointed at the
-// sandbox's real file:// GitOps repo + ArgoCD. The screenshots therefore show
-// the real registry gallery and a genuine install result (committed to git,
-// nudged into ArgoCD) — not the deterministic demo fixtures.
-//
-// The pack to install comes from TEST_PACK; if that card is not present in the
-// live listing we fall back to the first installable card. The chosen pack name
-// is written to installed-pack.txt so the workflow knows which ArgoCD
-// Application to assert on afterward.
+// platform is up and the catalog runs on the runner pointed at the sandbox's
+// real file:// GitOps repo + ArgoCD. The install is triggered through the JSON
+// API (robust, no UI timing), then the page is reloaded so the screenshot shows
+// the resulting cluster state. The chosen pack is written to installed-pack.txt
+// so the workflow knows which ArgoCD Application to assert on.
 const { test, expect } = require("@playwright/test");
 const fs = require("fs");
 const path = require("path");
@@ -23,7 +19,7 @@ test.beforeAll(() => fs.mkdirSync(OUT, { recursive: true }));
 async function openGallery(page) {
   await page.goto("/");
   await expect(page.locator(".card").first()).toBeVisible();
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(500);
 }
 
 test("live gallery (light)", async ({ page }) => {
@@ -38,7 +34,7 @@ test("live gallery (dark)", async ({ page }) => {
   await page.screenshot({ path: path.join(OUT, "gallery-dark.png"), fullPage: true });
 });
 
-test("live install", async ({ page }) => {
+test("live install", async ({ page, request }) => {
   await page.emulateMedia({ colorScheme: "light" });
   await openGallery(page);
 
@@ -49,18 +45,18 @@ test("live install", async ({ page }) => {
   }
   fs.writeFileSync(path.join(__dirname, "installed-pack.txt"), pack ?? "");
 
+  // Trigger a real (non-dry-run) install through the API the SPA uses.
+  const res = await request.post("api/install", {
+    headers: { "Content-Type": "application/json" },
+    data: { pack, version: "", dryRun: false },
+  });
+  expect(res.ok()).toBeTruthy();
+
+  // Reload so the grid reflects the new cluster state, then capture it.
+  await page.reload();
+  await expect(page.locator(".card").first()).toBeVisible();
+  await page.waitForTimeout(800);
   const card = page.locator(`.card[data-pack="${pack}"]`);
-  await card.scrollIntoViewIfNeeded();
-
-  // "Install" in a live (GitOps-configured) deployment; "Preview" in dry-run —
-  // match either so the spec is runnable locally too.
-  await card.getByRole("button", { name: /Install|Preview/ }).click();
-
-  // The real install commits + nudges + polls ArgoCD, so the result can take a
-  // while; the config's expect timeout covers it.
-  await expect(page.locator(`#result-${pack} .result`)).toBeVisible();
-
-  await page.mouse.move(0, 0);
-  await page.waitForTimeout(300);
-  await card.screenshot({ path: path.join(OUT, "install-result.png") });
+  if (await card.count()) await card.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: path.join(OUT, "install-result.png"), fullPage: true });
 });

@@ -163,16 +163,21 @@ into the GitOps repo. The container runs non-root with a read-only root filesyst
 ## Development
 
 ```bash
-make -f dev/Makefile generate     # regenerate templ components
-make -f dev/Makefile test         # go test ./...
+make -f dev/Makefile web           # build the React SPA into web/dist
+make -f dev/Makefile build         # build the binary (embeds the SPA) into ./bin
+make -f dev/Makefile test          # go test ./...
 make -f dev/Makefile vet
-make -f dev/Makefile image        # docker build
+make -f dev/Makefile web-typecheck # tsc --noEmit
+make -f dev/Makefile image         # docker build (builds the SPA in a stage)
 make -f dev/Makefile helm-lint
 cd test/e2e && npm install && npm run screenshots   # regenerate UI screenshots
 ```
 
-The UI is server-rendered with [templ](https://templ.guide) and [htmx](https://htmx.org) (both vendored — no
-CDN, no node toolchain at runtime). Generated `*_templ.go` files are committed; CI verifies they are up to date.
+The frontend is a **React + TypeScript single-page app** ([`web/`](web/)) built with Vite + Tailwind v4,
+using components from the [Nebari design system](https://github.com/nebari-dev/nebari-design) shadcn registry
+(`@nebari`). The Go server exposes a JSON API (`/api/*`) and serves the built SPA embedded in the binary — no
+runtime external requests. A committed placeholder keeps `go build` working before the frontend is built; the
+real build happens in CI, the Docker image stage, and `make web`.
 
 ### Integration tests
 
@@ -181,8 +186,9 @@ CDN, no node toolchain at runtime). Generated `*_templ.go` files are committed; 
 the pack against a real cluster in two layers: **(1) deploy-and-Healthy** — builds the image and deploys the chart
 onto the platform via the `add-software-pack` sub-action, asserting `Application/nebari-catalog-pack` reaches
 `Healthy`; **(2) the real install path** — runs the catalog against the sandbox's live `file://` GitOps repo +
-ArgoCD, drives a genuine install through the UI with the Playwright harness in [`test/e2e/`](test/e2e/)
-(`npm run screenshots:live`), and asserts the catalog committed an `Application` that ArgoCD then created. The live
+ArgoCD, triggers a genuine install through the API the SPA uses and captures live screenshots with the Playwright
+harness in [`test/e2e/`](test/e2e/) (`npm run screenshots:live`), then asserts the catalog committed an
+`Application` that ArgoCD then created. The live
 screenshots are captured under [`docs/screenshots/live/`](docs/screenshots/live/) (committed on `main` runs;
 artifact-only on PRs). It runs on PRs touching the payload, on `main`, and on demand — heavier than `ci.yml`,
 which stays cluster-free.
@@ -196,7 +202,8 @@ internal/registry      Quay/OCI discovery, metadata enrichment, demo fixtures
 internal/gitops        ArgoCD Application builder + go-git committer
 internal/argocd        dynamic-client refresh nudge + Application status poll
 internal/installer     orchestration: resolve -> render -> commit -> nudge -> wait
-internal/server        HTTP routes + templ/htmx UI (internal/server/ui)
+internal/server        JSON API (/api/*) + serves the embedded SPA
+web/                   React + TS single-page app (Vite, Tailwind v4, @nebari)
 chart/                 Helm chart packaging the service as a pack
 examples/              ArgoCD Application + values for operator/standalone installs
 test/e2e/              Playwright screenshot harness
