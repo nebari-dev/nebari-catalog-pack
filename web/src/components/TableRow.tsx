@@ -8,7 +8,7 @@ export function TableRow(props: PackProps) {
   const { pack, installed, result } = props;
   return (
     <>
-      <tr className="row">
+      <tr className="row" data-pack={pack.id}>
         <td>
           <div className="pk">
             <span className="tile">

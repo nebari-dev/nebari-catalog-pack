@@ -19,10 +19,15 @@ internal/registry      Quay/OCI discovery + best-effort pack-metadata enrichment
 internal/gitops        ArgoCD Application builder + go-git committer
 internal/argocd        dynamic-client refresh nudge + Application status poll
 internal/installer     orchestration: resolve -> render -> commit -> nudge -> wait
-internal/server        HTTP routes + templ/htmx UI
-internal/server/ui     templ components (gallery, card, install result)
+internal/server        JSON API (/api/packs, /api/install, /api/gitops) + serves the embedded SPA
+web/                   React + TypeScript single-page app (Vite, Tailwind v4, @nebari registry components)
 chart/                 the Helm chart that packages all of the above as a pack
 ```
+
+The frontend is a React/TS SPA built with Vite and the Nebari design system's
+shadcn registry (`@nebari`). It is built to `web/dist` and embedded into the Go
+binary (the `web` package), so the server makes no runtime external requests.
+The Go server is a JSON API; it does not render HTML.
 
 ## Discovery
 

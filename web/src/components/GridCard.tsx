@@ -7,7 +7,7 @@ import { ResultBlock } from "@/components/ResultBlock";
 export function GridCard(props: PackProps) {
   const { pack, installed, result } = props;
   return (
-    <div className="card">
+    <div className="card" data-pack={pack.id}>
       <div className="ctop">
         <span className="tile">
           {pack.icon ? <img src={pack.icon} alt="" loading="lazy" /> : <NebariMark />}

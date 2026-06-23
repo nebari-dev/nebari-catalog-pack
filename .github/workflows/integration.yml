@@ -115,6 +115,10 @@ jobs:
       # binary on the runner where it has direct filesystem access to the
       # GitOps dir and a KUBECONFIG for the ArgoCD nudge. This is the same
       # "engine against the live cluster" shape the other packs use.
+      - name: Build the SPA (embedded by the runner's catalog binary)
+        working-directory: web
+        run: npm ci && npm run build
+
       - name: Start the catalog against the real GitOps repo
         env:
           GITOPS_DIR: ${{ steps.sandbox.outputs.gitops-dir }}
