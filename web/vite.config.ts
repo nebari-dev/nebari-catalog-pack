@@ -13,6 +13,9 @@ export default defineConfig({
   },
   build: {
     outDir: "dist",
-    emptyOutDir: true,
+    // Keep the committed dist/.gitkeep (the Go embed placeholder) across builds.
+    // CI/Docker build in clean checkouts, so stale hashed assets aren't a
+    // concern there; locally they're gitignored.
+    emptyOutDir: false,
   },
 });

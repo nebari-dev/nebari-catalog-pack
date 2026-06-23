@@ -17,6 +17,15 @@ const badgeVariants = cva(
         destructive: 'bg-destructive text-destructive-foreground',
         outline: 'border-border-strong bg-background text-foreground',
         ghost: 'text-foreground',
+        // Catalog feedback/maturity extensions (semantic tokens via arbitrary
+        // values so they switch with light/.dark). Not in the base registry
+        // Badge; kept as a local superset.
+        success: 'bg-success text-success-foreground',
+        info: 'bg-info text-info-foreground',
+        warning: 'bg-warning text-warning-foreground',
+        amber: 'bg-[var(--amber)] text-[var(--amber-foreground)]',
+        version:
+          'border-[var(--teal-border)] bg-[var(--teal)] text-[var(--teal-foreground)] font-mono text-[11.5px] px-2 py-px',
       },
     },
     defaultVariants: {

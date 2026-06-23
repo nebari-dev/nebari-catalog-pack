@@ -1,2 +1,2 @@
 Placeholder so the Go embed compiles before the frontend is built.
-The real index.html + assets are produced by `npm run build`.
+The real index.html + assets are produced by npm run build.

@@ -390,3 +390,20 @@
     @apply bg-background font-sans text-foreground;
   }
 }
+
+/* ── Catalog extensions: maturity (amber=experimental) + version (teal) ──
+   Layered on the @nebari semantic tokens; switch with light/.dark. */
+:root {
+  --amber: var(--highlight-yellow-100);
+  --amber-foreground: var(--highlight-yellow-700);
+  --teal: var(--accent-teal-50);
+  --teal-foreground: var(--accent-teal-700);
+  --teal-border: var(--accent-teal-500);
+}
+.dark {
+  --amber: var(--highlight-yellow-900);
+  --amber-foreground: var(--highlight-yellow-200);
+  --teal: var(--accent-teal-950);
+  --teal-foreground: var(--accent-teal-300);
+  --teal-border: var(--accent-teal-600);
+}
