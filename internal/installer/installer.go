@@ -65,6 +65,20 @@ func New(cfg *config.Config, writer *gitops.Writer, argo *argocd.Client) *Instal
 // Enabled reports whether installs can be committed.
 func (i *Installer) Enabled() bool { return i.writer != nil }
 
+// InstalledStatus returns the status of every ArgoCD Application, keyed by name
+// (which equals the pack name). Best-effort: returns nil when ArgoCD is not
+// configured/reachable or the list fails, so callers degrade gracefully.
+func (i *Installer) InstalledStatus(ctx context.Context) map[string]argocd.Status {
+	if i.argo == nil {
+		return nil
+	}
+	m, err := i.argo.List(ctx)
+	if err != nil {
+		return nil
+	}
+	return m
+}
+
 // buildRequest resolves a pack + version into an InstallRequest.
 func (i *Installer) buildRequest(p registry.Pack, version string) gitops.InstallRequest {
 	if version == "" {
@@ -94,8 +108,10 @@ func (i *Installer) buildRequest(p registry.Pack, version string) gitops.Install
 	return req
 }
 
-// Install resolves, renders, and (unless dry-run) commits + nudges.
-func (i *Installer) Install(ctx context.Context, p registry.Pack, version string) (*Result, error) {
+// Install resolves, renders, and (unless dry-run) commits + nudges. dryRun
+// forces a preview (render only, nothing committed) even when a writer is
+// configured; it is OR-ed with the global config dry-run.
+func (i *Installer) Install(ctx context.Context, p registry.Pack, version string, dryRun bool) (*Result, error) {
 	req := i.buildRequest(p, version)
 	manifest, err := i.builder.Render(req)
 	if err != nil {
@@ -109,7 +125,7 @@ func (i *Installer) Install(ctx context.Context, p registry.Pack, version string
 		Manifest: manifest,
 	}
 
-	if i.cfg.DryRun || i.writer == nil {
+	if dryRun || i.cfg.DryRun || i.writer == nil {
 		res.DryRun = true
 		if i.writer == nil {
 			res.Summary = "GitOps repo not configured — preview only."

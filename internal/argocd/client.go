@@ -94,6 +94,27 @@ func (c *Client) Get(ctx context.Context, name string) (Status, error) {
 	return Status{Exists: true, Health: health, Sync: sync}, nil
 }
 
+// List returns the status of every Application in the namespace, keyed by
+// Application name. Used to surface which packs are already installed.
+func (c *Client) List(ctx context.Context) (map[string]Status, error) {
+	list, err := c.dyn.Resource(applicationGVR).Namespace(c.namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("list applications in %s: %w", c.namespace, err)
+	}
+	out := make(map[string]Status, len(list.Items))
+	for i := range list.Items {
+		obj := list.Items[i].Object
+		name := list.Items[i].GetName()
+		health, _, _ := nestedString(obj, "status", "health", "status")
+		sync, _, _ := nestedString(obj, "status", "sync", "status")
+		out[name] = Status{Exists: true, Health: health, Sync: sync}
+	}
+	return out, nil
+}
+
+// RootApp returns the configured app-of-apps name (for status display).
+func (c *Client) RootApp() string { return c.rootApp }
+
 // WaitReady polls until the named Application is Healthy+Synced or the timeout
 // elapses. It returns the last observed status.
 func (c *Client) WaitReady(ctx context.Context, name string, timeout, interval time.Duration) (Status, error) {

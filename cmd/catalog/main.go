@@ -70,7 +70,7 @@ func main() {
 	}
 
 	inst := installer.New(cfg, writer, argo)
-	srv := server.New(cfg, reg, enricher, inst, log)
+	srv := server.New(cfg, reg, enricher, inst, argo, log)
 
 	httpServer := &http.Server{
 		Addr:              cfg.ListenAddr,
