@@ -50,6 +50,10 @@ type InstallRequest struct {
 	// from the values drawer (which starts from DefaultValues). Takes precedence
 	// over the generated block + ExtraValues.
 	ValuesOverride string
+	// NamespaceOverride / SyncWaveOverride, when set, override the builder's
+	// defaults for spec.destination.namespace and the sync-wave annotation.
+	NamespaceOverride string
+	SyncWaveOverride  string
 
 	// OCIRepoURL / Chart are used for SourceOCI (e.g. "quay.io/nebari/charts").
 	OCIRepoURL string
@@ -95,12 +99,16 @@ func (b Builder) Render(r InstallRequest) (string, error) {
 		R           InstallRequest
 		Name        string
 		Hostname    string
+		Namespace   string // overrides the embedded Builder.Namespace in the template
+		SyncWave    string // overrides the embedded Builder.SyncWave in the template
 		ValuesBlock string
 	}{
-		Builder:  b,
-		R:        r,
-		Name:     name,
-		Hostname: hostname,
+		Builder:   b,
+		R:         r,
+		Name:      name,
+		Hostname:  hostname,
+		Namespace: orStr(r.NamespaceOverride, b.Namespace),
+		SyncWave:  orStr(r.SyncWaveOverride, b.SyncWave),
 	}
 	values := b.valuesYAML(r, hostname)
 	if strings.TrimSpace(r.ValuesOverride) != "" {

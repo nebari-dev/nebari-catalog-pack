@@ -17,18 +17,26 @@ type Props = {
 export function ValuesDrawer({ pack, mode, onClose, onInstalled }: Props) {
   const [version, setVersion] = useState("");
   const [values, setValues] = useState("");
+  const [namespace, setNamespace] = useState("");
+  const [syncWave, setSyncWave] = useState("");
+  const [source, setSource] = useState("");
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<"preview" | "install" | null>(null);
   const [result, setResult] = useState<InstallResult | undefined>();
 
-  // (Re)load the default values whenever the pack or version changes.
+  // (Re)load the defaults whenever the pack or version changes.
   useEffect(() => {
     if (!pack) return;
     const v = version || pack.version;
     setLoading(true);
     setResult(undefined);
     getValues(pack.id, v)
-      .then(setValues)
+      .then((d) => {
+        setValues(d.values);
+        setNamespace(d.namespace);
+        setSyncWave(d.syncWave);
+        setSource(d.source ?? "");
+      })
       .finally(() => setLoading(false));
   }, [pack, version]);
 
@@ -55,6 +63,8 @@ export function ValuesDrawer({ pack, mode, onClose, onInstalled }: Props) {
         version: version || pack.version,
         dryRun: kind === "preview" || mode === "dry-run",
         values,
+        namespace,
+        syncWave,
       });
       setResult(res);
       if (kind === "install" && res.ok && !res.dryRun) onInstalled();
@@ -65,7 +75,12 @@ export function ValuesDrawer({ pack, mode, onClose, onInstalled }: Props) {
     }
   };
 
-  const reload = () => getValues(pack.id, version || pack.version).then(setValues);
+  const reload = () =>
+    getValues(pack.id, version || pack.version).then((d) => {
+      setValues(d.values);
+      setNamespace(d.namespace);
+      setSyncWave(d.syncWave);
+    });
 
   return (
     <div className="drawer-overlay" onClick={onClose}>
@@ -81,15 +96,26 @@ export function ValuesDrawer({ pack, mode, onClose, onInstalled }: Props) {
         </div>
 
         <div className="drawer-controls">
-          <span className="selct mono">
-            <select value={version || pack.version} onChange={(e) => setVersion(e.target.value)} aria-label="Version">
-              {pack.versions.map((v) => (
-                <option key={v} value={v}>
-                  {v.startsWith("v") ? v : `v${v}`}
-                </option>
-              ))}
-            </select>
-          </span>
+          <label className="drawer-field">
+            <span>Version</span>
+            <span className="selct mono">
+              <select value={version || pack.version} onChange={(e) => setVersion(e.target.value)} aria-label="Version">
+                {pack.versions.map((v) => (
+                  <option key={v} value={v}>
+                    {v.startsWith("v") ? v : `v${v}`}
+                  </option>
+                ))}
+              </select>
+            </span>
+          </label>
+          <label className="drawer-field">
+            <span>Namespace</span>
+            <input className="drawer-input" value={namespace} onChange={(e) => setNamespace(e.target.value)} aria-label="Destination namespace" />
+          </label>
+          <label className="drawer-field" style={{ flex: "0 0 92px" }}>
+            <span>Sync-wave</span>
+            <input className="drawer-input" value={syncWave} onChange={(e) => setSyncWave(e.target.value)} aria-label="Sync-wave" inputMode="numeric" />
+          </label>
           <span className="spacer" style={{ flex: 1 }} />
           <Button variant="ghost" size="sm" onClick={reload} title="Reset to generated defaults">
             <RotateCcw />
@@ -99,6 +125,7 @@ export function ValuesDrawer({ pack, mode, onClose, onInstalled }: Props) {
 
         <label className="drawer-label" htmlFor="values-editor">
           spec.source.helm.values
+          <span className="drawer-source">{source === "chart" ? "chart defaults" : "generated"}</span>
         </label>
         <textarea
           id="values-editor"

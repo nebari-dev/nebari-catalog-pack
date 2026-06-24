@@ -58,10 +58,16 @@ export function getGitops(): Promise<Gitops> {
   return getJSON<Gitops>("api/gitops");
 }
 
-export async function getValues(pack: string, version: string): Promise<string> {
+export type PackDefaults = {
+  values: string;
+  namespace: string;
+  syncWave: string;
+  source?: string; // "chart" (full chart values.yaml) | "generated" (contract block)
+};
+
+export function getValues(pack: string, version: string): Promise<PackDefaults> {
   const params = new URLSearchParams({ pack, version });
-  const data = await getJSON<{ values: string }>(`api/values?${params}`);
-  return data.values;
+  return getJSON<PackDefaults>(`api/values?${params}`);
 }
 
 export async function postInstall(body: {
@@ -69,6 +75,8 @@ export async function postInstall(body: {
   version: string;
   dryRun: boolean;
   values?: string;
+  namespace?: string;
+  syncWave?: string;
 }): Promise<InstallResult> {
   const res = await fetch("api/install", {
     method: "POST",

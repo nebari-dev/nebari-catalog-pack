@@ -114,13 +114,25 @@ func (i *Installer) DefaultValues(p registry.Pack, version string) string {
 	return i.builder.DefaultValues(i.buildRequest(p, version))
 }
 
-// Install resolves, renders, and (unless dry-run) commits + nudges. dryRun
-// forces a preview (render only, nothing committed) even when a writer is
-// configured; it is OR-ed with the global config dry-run. valuesOverride, when
-// non-empty, replaces the generated Helm values block verbatim.
-func (i *Installer) Install(ctx context.Context, p registry.Pack, version string, dryRun bool, valuesOverride string) (*Result, error) {
+// Options are per-request install overrides from the values drawer.
+type Options struct {
+	// DryRun forces a preview (render only, nothing committed) even when a
+	// writer is configured; OR-ed with the global config dry-run.
+	DryRun bool
+	// Values, when non-empty, replaces the generated Helm values block verbatim.
+	Values string
+	// Namespace / SyncWave override the generated destination namespace and
+	// sync-wave annotation when non-empty.
+	Namespace string
+	SyncWave  string
+}
+
+// Install resolves, renders, and (unless dry-run) commits + nudges.
+func (i *Installer) Install(ctx context.Context, p registry.Pack, version string, opts Options) (*Result, error) {
 	req := i.buildRequest(p, version)
-	req.ValuesOverride = valuesOverride
+	req.ValuesOverride = opts.Values
+	req.NamespaceOverride = opts.Namespace
+	req.SyncWaveOverride = opts.SyncWave
 	manifest, err := i.builder.Render(req)
 	if err != nil {
 		return nil, fmt.Errorf("render manifest: %w", err)
@@ -133,7 +145,7 @@ func (i *Installer) Install(ctx context.Context, p registry.Pack, version string
 		Manifest: manifest,
 	}
 
-	if dryRun || i.cfg.DryRun || i.writer == nil {
+	if opts.DryRun || i.cfg.DryRun || i.writer == nil {
 		res.DryRun = true
 		if i.writer == nil {
 			res.Summary = "GitOps repo not configured — preview only."
