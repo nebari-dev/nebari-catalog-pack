@@ -45,6 +45,11 @@ type InstallRequest struct {
 	// column 0) merged under spec.source.helm.values. The nebariapp block is
 	// always generated; ExtraValues is appended verbatim for chart-specific keys.
 	ExtraValues string
+	// ValuesOverride, when set, REPLACES the generated values block entirely and
+	// is written verbatim as spec.source.helm.values. It is the user-edited YAML
+	// from the values drawer (which starts from DefaultValues). Takes precedence
+	// over the generated block + ExtraValues.
+	ValuesOverride string
 
 	// OCIRepoURL / Chart are used for SourceOCI (e.g. "quay.io/nebari/charts").
 	OCIRepoURL string
@@ -83,10 +88,7 @@ func (b Builder) Render(r InstallRequest) (string, error) {
 		return "", err
 	}
 
-	hostname := r.Hostname
-	if hostname == "" && b.Domain != "" {
-		hostname = name + "." + b.Domain
-	}
+	hostname := b.hostnameFor(r)
 
 	data := struct {
 		Builder
@@ -100,13 +102,35 @@ func (b Builder) Render(r InstallRequest) (string, error) {
 		Name:     name,
 		Hostname: hostname,
 	}
-	data.ValuesBlock = indent(b.valuesYAML(r, hostname), 8)
+	values := b.valuesYAML(r, hostname)
+	if strings.TrimSpace(r.ValuesOverride) != "" {
+		values = strings.TrimRight(r.ValuesOverride, "\n") + "\n"
+	}
+	data.ValuesBlock = indent(values, 8)
 
 	var buf bytes.Buffer
 	if err := appTemplate.Execute(&buf, data); err != nil {
 		return "", err
 	}
 	return buf.String(), nil
+}
+
+// hostnameFor resolves the NebariApp hostname: explicit, else <app>.<domain>.
+func (b Builder) hostnameFor(r InstallRequest) string {
+	if r.Hostname != "" {
+		return r.Hostname
+	}
+	if b.Domain != "" {
+		return appName(r) + "." + b.Domain
+	}
+	return ""
+}
+
+// DefaultValues returns the generated values block (column 0) that prefills the
+// values drawer, so the user edits from the catalog's nebariapp/landingPage
+// contract rather than a blank slate.
+func (b Builder) DefaultValues(r InstallRequest) string {
+	return b.valuesYAML(r, b.hostnameFor(r))
 }
 
 // valuesYAML builds the Helm values block (nebariapp + landingPage + extras).

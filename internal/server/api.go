@@ -42,6 +42,9 @@ type installReq struct {
 	Pack    string `json:"pack"`
 	Version string `json:"version"`
 	DryRun  bool   `json:"dryRun"`
+	// Values, when non-empty, replaces the generated Helm values block (the
+	// user-edited YAML from the values drawer).
+	Values string `json:"values"`
 }
 
 type installResp struct {
@@ -122,7 +125,7 @@ func (s *Server) handleAPIInstall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := s.inst.Install(r.Context(), *pack, req.Version, req.DryRun)
+	res, err := s.inst.Install(r.Context(), *pack, req.Version, req.DryRun, req.Values)
 	if err != nil {
 		s.log.Error("install", "pack", req.Pack, "err", err)
 		writeJSON(w, http.StatusInternalServerError, installResp{OK: false, Pack: req.Pack, Message: err.Error()})
@@ -146,6 +149,26 @@ func (s *Server) handleAPIInstall(w http.ResponseWriter, r *http.Request) {
 		Health:     res.Health,
 		Sync:       res.Sync,
 	})
+}
+
+// handleAPIValues returns the generated default Helm values for a pack+version,
+// used to prefill the values-override editor in the drawer.
+func (s *Server) handleAPIValues(w http.ResponseWriter, r *http.Request) {
+	name := r.URL.Query().Get("pack")
+	packs, err := s.packs(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "registry unavailable"})
+		return
+	}
+	for i := range packs {
+		if packs[i].Name == name {
+			writeJSON(w, http.StatusOK, map[string]string{
+				"values": s.inst.DefaultValues(packs[i], r.URL.Query().Get("version")),
+			})
+			return
+		}
+	}
+	writeJSON(w, http.StatusNotFound, map[string]string{"error": "unknown pack"})
 }
 
 // handleAPIGitops returns the GitOps/ArgoCD context for the SPA's status bar.

@@ -7,6 +7,7 @@ import { Switch } from "@/ui/switch";
 import { NebariMark } from "@/components/NebariMark";
 import { GridCard } from "@/components/GridCard";
 import { TableRow } from "@/components/TableRow";
+import { ValuesDrawer } from "@/components/ValuesDrawer";
 
 type Theme = "auto" | "light" | "dark";
 type Mode = "dry-run" | "ready";
@@ -56,6 +57,7 @@ export function App() {
   const [vers, setVers] = useState<Record<string, string>>({});
   const [results, setResults] = useState<Record<string, InstallResult>>({});
   const [busy, setBusy] = useState<Record<string, "preview" | "install">>({});
+  const [configure, setConfigure] = useState<Pack | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   // Load packs + gitops context.
@@ -157,6 +159,7 @@ export function App() {
     setVer,
     onPreview: (x: Pack) => run(x, "preview"),
     onInstall: (x: Pack) => run(x, "install"),
+    onConfigure: (x: Pack) => setConfigure(x),
     result: results[p.id],
   });
 
@@ -341,6 +344,17 @@ export function App() {
         </span>
         <span>nebari-catalog-pack</span>
       </footer>
+
+      <ValuesDrawer
+        pack={configure}
+        mode={effectiveMode}
+        onClose={() => setConfigure(null)}
+        onInstalled={() => {
+          reload();
+          getGitops().then(setGitops).catch(() => {});
+          setConfigure(null);
+        }}
+      />
     </div>
   );
 }

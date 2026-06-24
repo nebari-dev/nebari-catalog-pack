@@ -1,4 +1,4 @@
-import { Check, Eye, Package } from "lucide-react";
+import { Check, Eye, Package, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/ui/button";
 import type { InstallResult, Pack } from "@/api";
 
@@ -11,6 +11,7 @@ export type PackProps = {
   setVer: (id: string, v: string) => void;
   onPreview: (p: Pack) => void;
   onInstall: (p: Pack) => void;
+  onConfigure: (p: Pack) => void;
   result?: InstallResult;
 };
 
@@ -32,7 +33,7 @@ function VersionSelect({ pack, ver, setVer }: Pick<PackProps, "pack" | "ver" | "
 // Per-pack action row, shared by the grid card and table row. `compact` (table)
 // drops the inline version select (version is its own column) and shrinks.
 export function PackActions(props: PackProps & { compact?: boolean }) {
-  const { pack, mode, installed, busy, onPreview, onInstall, compact } = props;
+  const { pack, mode, installed, busy, onPreview, onInstall, onConfigure, compact } = props;
   const size = compact ? "sm" : "default";
   const grow = compact ? "" : "grow";
 
@@ -45,8 +46,21 @@ export function PackActions(props: PackProps & { compact?: boolean }) {
     );
   }
 
+  const configure = (
+    <Button
+      variant="outline"
+      size={compact ? "icon-sm" : "icon"}
+      onClick={() => onConfigure(pack)}
+      title="Configure values"
+      aria-label={`Configure values for ${pack.name}`}
+    >
+      <SlidersHorizontal />
+    </Button>
+  );
+
   return (
     <>
+      {configure}
       {!compact && <VersionSelect {...props} />}
       <Button
         variant="outline"

@@ -58,10 +58,17 @@ export function getGitops(): Promise<Gitops> {
   return getJSON<Gitops>("api/gitops");
 }
 
+export async function getValues(pack: string, version: string): Promise<string> {
+  const params = new URLSearchParams({ pack, version });
+  const data = await getJSON<{ values: string }>(`api/values?${params}`);
+  return data.values;
+}
+
 export async function postInstall(body: {
   pack: string;
   version: string;
   dryRun: boolean;
+  values?: string;
 }): Promise<InstallResult> {
   const res = await fetch("api/install", {
     method: "POST",

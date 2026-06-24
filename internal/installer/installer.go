@@ -108,11 +108,19 @@ func (i *Installer) buildRequest(p registry.Pack, version string) gitops.Install
 	return req
 }
 
+// DefaultValues returns the generated Helm values block for a pack+version,
+// used to prefill the values-override editor.
+func (i *Installer) DefaultValues(p registry.Pack, version string) string {
+	return i.builder.DefaultValues(i.buildRequest(p, version))
+}
+
 // Install resolves, renders, and (unless dry-run) commits + nudges. dryRun
 // forces a preview (render only, nothing committed) even when a writer is
-// configured; it is OR-ed with the global config dry-run.
-func (i *Installer) Install(ctx context.Context, p registry.Pack, version string, dryRun bool) (*Result, error) {
+// configured; it is OR-ed with the global config dry-run. valuesOverride, when
+// non-empty, replaces the generated Helm values block verbatim.
+func (i *Installer) Install(ctx context.Context, p registry.Pack, version string, dryRun bool, valuesOverride string) (*Result, error) {
 	req := i.buildRequest(p, version)
+	req.ValuesOverride = valuesOverride
 	manifest, err := i.builder.Render(req)
 	if err != nil {
 		return nil, fmt.Errorf("render manifest: %w", err)
