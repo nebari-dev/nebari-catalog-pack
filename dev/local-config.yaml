@@ -1,0 +1,18 @@
+# NIC config for a LOCAL Nebari platform to test the Pack Catalog on (Tier 2).
+#
+#   Deploy:  make -f dev/Makefile cluster-up     (nic deploy -f dev/local-config.yaml)
+#   Destroy: make -f dev/Makefile cluster-down   (nic destroy -f dev/local-config.yaml)
+#
+# NIC's local provider creates a kind cluster and the foundational stack
+# (cert-manager, Envoy Gateway, Keycloak, ArgoCD, nebari-operator, MetalLB),
+# plus an auto-generated GitOps repo at /tmp/nebari-gitops-nebari-catalog that
+# the `nebari-root` app-of-apps watches. The catalog is then deployed onto it
+# with `make -f dev/Makefile catalog-up`.
+project_name: nebari-catalog
+domain: nebari.local
+certificate:
+  type: selfsigned
+cluster:
+  # kind defaults; NIC auto-creates the cluster and mounts the default GitOps
+  # repo. Omitting git_repository uses /tmp/nebari-gitops-<project_name>.
+  local: {}

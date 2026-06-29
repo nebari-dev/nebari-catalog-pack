@@ -173,6 +173,10 @@ make -f dev/Makefile helm-lint
 cd test/e2e && npm install && npm run screenshots   # regenerate UI screenshots
 ```
 
+To run the catalog on a real cluster locally — a quick k3d + Helm smoke test, or a full Nebari platform
+(kind via NIC) that exercises the install path — see [`docs/dev-cluster.md`](docs/dev-cluster.md)
+(`make -f dev/Makefile cluster-quick` / `cluster-up`).
+
 The frontend is a **React + TypeScript single-page app** ([`web/`](web/)) built with Vite + Tailwind v4,
 using components from the [Nebari design system](https://github.com/nebari-dev/nebari-design) shadcn registry
 (`@nebari`). The Go server exposes a JSON API (`/api/*`) and serves the built SPA embedded in the binary — no

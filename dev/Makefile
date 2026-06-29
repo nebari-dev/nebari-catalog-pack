@@ -47,3 +47,22 @@ helm-template: ## Render the chart with NebariApp enabled
 
 clean: ## Remove build artifacts
 	cd $(ROOT) && rm -rf bin out web/dist/assets web/dist/index.html
+
+# ── Local test cluster (see docs/dev-cluster.md) ───────────────────────────
+cluster-quick: ## Tier 1: k3d cluster + helm install the catalog (read-only smoke)
+	$(ROOT)/dev/cluster.sh quick
+
+cluster-quick-down: ## Tier 1: delete the quick k3d cluster
+	$(ROOT)/dev/cluster.sh quick-down
+
+cluster-up: ## Tier 2: deploy a local Nebari platform (kind, via NIC)
+	$(ROOT)/dev/cluster.sh up
+
+catalog-up: ## Tier 2: run/deploy the catalog onto the platform (host|in-cluster)
+	$(ROOT)/dev/cluster.sh catalog $(MODE)
+
+cluster-status: ## Show ArgoCD apps + catalog pods
+	$(ROOT)/dev/cluster.sh status
+
+cluster-down: ## Tier 2: destroy the local Nebari platform
+	$(ROOT)/dev/cluster.sh down
