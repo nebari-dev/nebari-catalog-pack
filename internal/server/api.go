@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/nebari-dev/nebari-catalog-pack/internal/installer"
 	"github.com/nebari-dev/nebari-catalog-pack/internal/registry"
 )
 
@@ -42,6 +43,12 @@ type installReq struct {
 	Pack    string `json:"pack"`
 	Version string `json:"version"`
 	DryRun  bool   `json:"dryRun"`
+	// Values, when non-empty, replaces the generated Helm values block (the
+	// user-edited YAML from the values drawer).
+	Values string `json:"values"`
+	// Namespace / SyncWave override the destination namespace and sync-wave.
+	Namespace string `json:"namespace"`
+	SyncWave  string `json:"syncWave"`
 }
 
 type installResp struct {
@@ -122,7 +129,12 @@ func (s *Server) handleAPIInstall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := s.inst.Install(r.Context(), *pack, req.Version, req.DryRun)
+	res, err := s.inst.Install(r.Context(), *pack, req.Version, installer.Options{
+		DryRun:    req.DryRun,
+		Values:    req.Values,
+		Namespace: req.Namespace,
+		SyncWave:  req.SyncWave,
+	})
 	if err != nil {
 		s.log.Error("install", "pack", req.Pack, "err", err)
 		writeJSON(w, http.StatusInternalServerError, installResp{OK: false, Pack: req.Pack, Message: err.Error()})
@@ -146,6 +158,40 @@ func (s *Server) handleAPIInstall(w http.ResponseWriter, r *http.Request) {
 		Health:     res.Health,
 		Sync:       res.Sync,
 	})
+}
+
+// handleAPIValues returns the generated default Helm values for a pack+version,
+// used to prefill the values-override editor in the drawer.
+func (s *Server) handleAPIValues(w http.ResponseWriter, r *http.Request) {
+	name := r.URL.Query().Get("pack")
+	packs, err := s.packs(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "registry unavailable"})
+		return
+	}
+	for i := range packs {
+		if packs[i].Name != name {
+			continue
+		}
+		version := r.URL.Query().Get("version")
+		// Prefer the chart's full, commented values.yaml from the registry; fall
+		// back to the catalog's generated contract block when it isn't published
+		// as an OCI chart (or in demo mode).
+		values, source := s.inst.DefaultValues(packs[i], version), "generated"
+		if !s.cfg.Demo {
+			if cv, _ := s.reg.ChartValues(r.Context(), packs[i].Name, version); cv != "" {
+				values, source = cv, "chart"
+			}
+		}
+		writeJSON(w, http.StatusOK, map[string]string{
+			"values":    values,
+			"namespace": s.cfg.Install.Namespace,
+			"syncWave":  s.cfg.Install.SyncWave,
+			"source":    source,
+		})
+		return
+	}
+	writeJSON(w, http.StatusNotFound, map[string]string{"error": "unknown pack"})
 }
 
 // handleAPIGitops returns the GitOps/ArgoCD context for the SPA's status bar.

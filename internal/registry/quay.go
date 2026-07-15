@@ -21,6 +21,7 @@ type Client struct {
 	chartPrefix string
 	ociPullBase string
 	http        *http.Client
+	chartCache  chartValuesCache
 }
 
 // Options configures a Client. Zero values fall back to quay/nebari defaults.

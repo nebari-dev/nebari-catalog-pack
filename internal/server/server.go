@@ -61,6 +61,7 @@ func (s *Server) Handler() http.Handler {
 		_, _ = w.Write([]byte("ok"))
 	})
 	mux.HandleFunc(base+"/api/packs", s.handleAPIPacks)
+	mux.HandleFunc(base+"/api/values", s.handleAPIValues)
 	mux.HandleFunc(base+"/api/install", s.handleAPIInstall)
 	mux.HandleFunc(base+"/api/gitops", s.handleAPIGitops)
 	mux.Handle(base+"/", s.spaHandler())

@@ -58,10 +58,25 @@ export function getGitops(): Promise<Gitops> {
   return getJSON<Gitops>("api/gitops");
 }
 
+export type PackDefaults = {
+  values: string;
+  namespace: string;
+  syncWave: string;
+  source?: string; // "chart" (full chart values.yaml) | "generated" (contract block)
+};
+
+export function getValues(pack: string, version: string): Promise<PackDefaults> {
+  const params = new URLSearchParams({ pack, version });
+  return getJSON<PackDefaults>(`api/values?${params}`);
+}
+
 export async function postInstall(body: {
   pack: string;
   version: string;
   dryRun: boolean;
+  values?: string;
+  namespace?: string;
+  syncWave?: string;
 }): Promise<InstallResult> {
   const res = await fetch("api/install", {
     method: "POST",
