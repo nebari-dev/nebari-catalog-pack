@@ -173,6 +173,10 @@ make -f dev/Makefile helm-lint
 cd test/e2e && npm install && npm run screenshots   # regenerate UI screenshots
 ```
 
+To run the catalog on a real cluster locally (kind + Helm, standalone), see
+[`docs/dev-cluster.md`](docs/dev-cluster.md) (`make -f dev/Makefile cluster-create cluster-deploy`); the
+full-platform install path is exercised in CI by [`integration.yml`](.github/workflows/integration.yml).
+
 The frontend is a **React + TypeScript single-page app** ([`web/`](web/)) built with Vite + Tailwind v4,
 using components from the [Nebari design system](https://github.com/nebari-dev/nebari-design) shadcn registry
 (`@nebari`). The Go server exposes a JSON API (`/api/*`) and serves the built SPA embedded in the binary — no

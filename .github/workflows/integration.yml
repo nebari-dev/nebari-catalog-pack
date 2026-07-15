@@ -29,6 +29,7 @@ on:
       - "chart/**"
       - "examples/**"
       - "test/**"
+      - ".github/argo-apps/**"
       - "Dockerfile"
       - ".github/workflows/integration.yml"
   push:
@@ -80,7 +81,7 @@ jobs:
       # ── Platform cluster (k3d + NIC/ArgoCD + file:// GitOps repo) ──────────
       - name: Boot a full NIC platform cluster
         id: sandbox
-        uses: nebari-dev/action-nebari-sandbox@v2
+        uses: nebari-dev/action-nebari-sandbox@76ffb6ce5dd4141aeccb8c02719c907f0fe9e25e # v2.1.0
         with:
           profile: platform
           cluster-name: ${{ env.CLUSTER_NAME }}
@@ -93,12 +94,12 @@ jobs:
 
       # ── Layer 1: deploy the chart as a pack, assert Healthy ────────────────
       - name: Register catalog as a software pack
-        uses: nebari-dev/action-nebari-sandbox/add-software-pack@v2
+        uses: nebari-dev/action-nebari-sandbox/add-software-pack@76ffb6ce5dd4141aeccb8c02719c907f0fe9e25e # v2.1.0
         with:
           gitops-dir: ${{ steps.sandbox.outputs.gitops-dir }}
           app-name: nebari-catalog-pack
           chart-source: ./chart
-          application-manifest: ./test/integration/catalog-application.yaml
+          application-manifest: .github/argo-apps/nebari-catalog-pack.yaml
           wait-healthy: "true"
           # Carry a unit — the sub-action passes this to `kubectl wait --timeout=`.
           wait-timeout: "600s"

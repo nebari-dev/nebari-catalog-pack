@@ -47,3 +47,35 @@ helm-template: ## Render the chart with NebariApp enabled
 
 clean: ## Remove build artifacts
 	cd $(ROOT) && rm -rf bin out web/dist/assets web/dist/index.html
+
+# ── Local test cluster: kind + Helm, standalone (see docs/dev-cluster.md) ──
+# Full-platform (operator/ArgoCD) testing runs in CI via integration.yml
+# (action-nebari-sandbox); locally we deploy the chart standalone, like the
+# other packs' dev/Makefiles.
+KIND_CLUSTER ?= catalog-dev
+NAMESPACE    ?= nebari-system
+
+cluster-create: ## Create a local kind cluster
+	kind create cluster --name $(KIND_CLUSTER)
+
+cluster-load: image ## Build the image and load it into the kind cluster
+	kind load docker-image $(IMG) --name $(KIND_CLUSTER)
+
+cluster-deploy: cluster-load ## Deploy the catalog into kind (standalone, read-only)
+	cd $(ROOT) && helm upgrade --install nebari-catalog-pack ./chart \
+		--namespace $(NAMESPACE) --create-namespace \
+		--set image.repository=$(word 1,$(subst :, ,$(IMG))) \
+		--set image.tag=$(word 2,$(subst :, ,$(IMG))) \
+		--set image.pullPolicy=Never \
+		--set nebariapp.enabled=false \
+		--set rbac.create=false \
+		--set catalog.gitops.repoURL="" \
+		--set catalog.argocd.enabled=false
+	kubectl -n $(NAMESPACE) rollout status deploy/nebari-catalog-pack --timeout=120s
+	@echo "Browse with: make -f dev/Makefile cluster-forward  (then open http://localhost:8080/)"
+
+cluster-forward: ## Port-forward the catalog to http://localhost:8080
+	kubectl -n $(NAMESPACE) port-forward svc/nebari-catalog-pack 8080:80
+
+cluster-delete: ## Delete the local kind cluster
+	kind delete cluster --name $(KIND_CLUSTER)
